@@ -182,28 +182,25 @@ class TextDispatcherModule(AbstractModule):
 
     @staticmethod
     def input_ius():
-        return [text.common.SpeechRecognitionIU, text.common.TextIU]
+        return [SpeechRecognitionIU, TextIU]
 
     @staticmethod
     def output_iu():
-        return text.common.GeneratedTextIU
+        return GeneratedTextIU
 
-    def __init__(self, forward_after_final=True, **kwargs):
+    def __init__(self, dispatch_final=True, **kwargs):
         super().__init__(**kwargs)
-        self.forward_after_final = forward_after_final
+        self.dispatch_final = dispatch_final
 
     def process_update(self, update_message):
         um = UpdateMessage()
         for iu, ut in update_message:
-            if ut != UpdateType.ADD:
-                continue
-            if isinstance(iu, text.common.SpeechRecognitionIU):
-                if self.forward_after_final and not iu.final:
-                    return
             output_iu = self.create_iu(iu)
             output_iu.payload = iu.get_text()
             output_iu.dispatch = True
-            um.add_iu(output_iu, UpdateType.ADD)
+            if isinstance(iu, SpeechRecognitionIU) and self.dispatch_final:
+                output_iu.dispatch = iu.final
+            um.add_iu(output_iu, ut)
         return um
 
 
@@ -226,15 +223,14 @@ class IncrementalizeASRModule(AbstractModule):
 
     @staticmethod
     def input_ius():
-        return [text.common.SpeechRecognitionIU]
+        return [SpeechRecognitionIU]
 
     @staticmethod
     def output_iu():
-        return text.common.SpeechRecognitionIU
+        return SpeechRecognitionIU
 
     def __init__(self, threshold=0.8, **kwargs):
         super().__init__(**kwargs)
-        self.last_ius = []
         self.threshold = threshold
 
     def get_increment(self, new_text):
@@ -242,24 +238,24 @@ class IncrementalizeASRModule(AbstractModule):
         produced and returns only the increment from the last update. It revokes all
         previously produced IUs that do not match."""
         um = UpdateMessage()
-        for iu in self.last_ius:
+        for iu in self.current_ius:
             if new_text.startswith(iu.text):
                 new_text = new_text[len(iu.text) :]
             else:
                 iu.revoked = True
                 um.add_iu(iu, UpdateType.REVOKE)
-        self.last_ius = [iu for iu in self.last_ius if not iu.revoked]
+        self.current_ius = [iu for iu in self.current_ius if not iu.revoked]
         return um, new_text
 
     def process_update(self, update_message):
+        um = UpdateMessage()
         for iu, ut in update_message:
             if ut != UpdateType.ADD:
                 continue
             if iu.stability < self.threshold and iu.confidence == 0.0:
                 continue
-            um = UpdateMessage()
             current_text = iu.get_text()
-            if self.last_ius:
+            if self.current_ius:
                 um, current_text = self.get_increment(current_text)
             if current_text.strip() == "":
                 continue
@@ -274,10 +270,10 @@ class IncrementalizeASRModule(AbstractModule):
                 iu.confidence,
                 iu.final,
             )
-            self.last_ius.append(output_iu)
+            self.current_ius.append(output_iu)
 
             if output_iu.final:
-                self.last_ius = []
+                self.current_ius = []
                 output_iu.committed = True
 
             um.add_iu(output_iu, UpdateType.ADD)
@@ -300,7 +296,7 @@ class EndOfUtteranceModule(AbstractModule):
 
     @staticmethod
     def input_ius():
-        return [text.common.SpeechRecognitionIU]
+        return [SpeechRecognitionIU]
 
     @staticmethod
     def output_iu():

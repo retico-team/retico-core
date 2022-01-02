@@ -12,9 +12,15 @@ import queue
 import threading
 import time
 import enum
+import copy
 
 
 class UpdateType(enum.Enum):
+    """The update type enum that defines all the types with which the incremental units
+    can be transmitted. Per default, the UpdateMessge class checks that the update type
+    is one of the types listed in this enum. However, the strict type checking can be
+    disabled and any update type may be used."""
+
     ADD = "add"
     REVOKE = "revoke"
     COMMIT = "commit"
@@ -209,8 +215,12 @@ class UpdateMessage:
     update types can be any of the ones defined in the enum UpdateType"""
 
     def __init__(self):
-        """Initializes the update message."""
-        self._msgs = []
+        """Initializes the update message with no IU added.
+
+        To initialize with a single IU use the classmethod "from_iu" or for a list of
+        IUs use the classmethod "from_ius".
+        """
+        self._msgs = []  # First element of tuple is IU, second is UpdateType
         self._counter = -1
 
     def __len__(self):
@@ -235,8 +245,8 @@ class UpdateMessage:
         type and incremental units in the format (IncrementalUnit, UpdateType)
 
         Args:
-            iu_list (list): A list of UpdateType-IncrementalUnit-tuples in the format
-                (UpdateType, IncrementalUnit) that will be added to the update message.
+            iu_list (list): A list of IncrementalUnit-UpdateType-tuples in the format
+                (IncrementalUnit, UpdateType) that will be added to the update message.
         """
         um = UpdateMessage()
         um.add_ius(iu_list)
@@ -329,12 +339,7 @@ class UpdateMessage:
             iu_classes = [iu_classes]
 
         for iu in self.incremental_units():
-            is_valid = False
-            for iu_class in iu_classes:
-                if isinstance(iu, iu_class):
-                    is_valid = True
-                    break
-            if not is_valid:
+            if not isinstance(iu, tuple(iu_classes)):
                 return False
         return True
 
@@ -448,6 +453,8 @@ class AbstractModule:
         self.mutex = threading.Lock()
         self.events = {}
 
+        self.current_ius = []
+
         self.meta_data = {}
         if meta_data:
             self.meta_data = meta_data
@@ -457,6 +464,46 @@ class AbstractModule:
             self.queue_class = queue_class
 
         self.iu_counter = 0
+
+    def revoke(self, iu, remove_revoked=True):
+        """Revokes an IU form the list of the current_ius.
+
+        Args:
+            iu (IncrmentalUnit or list): The incremental unit or a list of incremental
+                units to revoke.
+            remove_revoked (bool): Whether the revoked incremental unit should be
+                deleted from the current_ius list or if only the revoked flag should
+                be set.
+        """
+        if isinstance(iu, IncrementalUnit):
+            iu = [iu]
+        new_iu_list = []
+        for ciu in self.current_ius:
+            flag = False
+            for a in iu:
+                if ciu.iuid == a.iuid:
+                    ciu.revoked = True
+                    flag = True
+                    break
+            if not flag:
+                new_iu_list.append(ciu)
+        if remove_revoked:
+            self.current_ius = new_iu_list
+
+    def commit(self, iu):
+        """Sets one or multiple IUs as commited from the list of the current_ius.
+
+        Args:
+            iu (IncrementalUnit or list): The incrementall unit or list of incremental
+                to set as committed.
+        """
+        if isinstance(iu, IncrementalUnit):
+            iu = [iu]
+        for ciu in self.current_ius:
+            for i in iu:
+                if ciu.iuid == i.iuid:
+                    ciu.committed = True
+                    break
 
     def add_left_buffer(self, left_buffer):
         """Add a new left buffer for the module.
@@ -553,7 +600,7 @@ class AbstractModule:
                 % type(update_message)
             )
         for q in self._right_buffers:
-            q.put(update_message)
+            q.put(copy.copy(update_message))
 
     def subscribe(self, module, q=None):
         """Subscribe a module to the queue.

@@ -20,7 +20,7 @@ config = {
     "url": "??",
     "download_url": "??",
     "author_email": "thilo.michael@tu-berlin.de",
-    "version": "0.2",
+    "version": "0.2.0",
     "install_requires": ["pyaudio~=0.2.11"],
     "packages": find_packages(),
     "name": "retico-core",
