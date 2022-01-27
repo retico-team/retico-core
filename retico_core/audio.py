@@ -473,7 +473,6 @@ class AudioDispatcherModule(AbstractModule):
         # If the AudioDispatcherModule is set to intterupt mode or if the
         # incoming IU is set to not dispatch, we stop dispatching and clean the
         # buffer
-        um = UpdateMessage()
         for iu, ut in update_message:
             if ut != UpdateType.ADD:
                 continue
