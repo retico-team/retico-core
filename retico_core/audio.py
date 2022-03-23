@@ -10,7 +10,12 @@ import threading
 import queue
 import time
 import wave
-import pyaudio
+
+try:
+    import pyaudio
+except ImportError:
+    pass
+
 from retico_core import *
 
 CHANNELS = 1
