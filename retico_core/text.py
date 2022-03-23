@@ -1,4 +1,7 @@
 """
+Text Module
+===========
+
 This file defines general incremental units and incremental modules that deal with text.
 This may be a transcription that is generated from an ASR module, a text IU containing
 words to be synthesized by a TTS module or other general purpose text.

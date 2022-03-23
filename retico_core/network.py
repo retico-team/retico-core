@@ -1,4 +1,10 @@
-"""A Module that allows for saving and loading networks from and to file."""
+"""
+Network Module
+==============
+
+
+A Module that allows for saving and loading networks from and to file.
+"""
 
 import pickle
 

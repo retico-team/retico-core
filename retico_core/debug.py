@@ -1,4 +1,7 @@
 """
+Debug Module
+============
+
 This file contains general debug modules that can be used to output information from any
 incremental unit.
 """

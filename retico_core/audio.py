@@ -1,4 +1,7 @@
 """
+Audio Module
+============
+
 This module defines basic incremental units and incremental modules to handle
 audio input (via a standard microphone) and output.
 """

@@ -1,3 +1,11 @@
+"""
+Dialogue Module
+===============
+
+This module contains basic dialogue functionality, like a :class:`.DialogueActIU` for
+a dialogue manager.
+"""
+
 from retico_core import *
 
 

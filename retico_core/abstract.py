@@ -1,4 +1,7 @@
 """
+Abstract Module
+===============
+
 This module defines the abstract classes used by the incremental modules.
 The AbstractModules defines some methods that handle the general tasks of a
 module (like the handling of Queues).
@@ -22,6 +25,7 @@ class UpdateType(enum.Enum):
     disabled and any update type may be used."""
 
     ADD = "add"
+    UPDATE = "update"
     REVOKE = "revoke"
     COMMIT = "commit"
 
@@ -326,7 +330,7 @@ class UpdateMessage:
         the ius argument.
 
         Args:
-            iu_classes (list or IncementalUnit): A list of incremental unit classes or a
+            iu_classes (list or class): A list of incremental unit classes or a
                 single incremental unit class that should be checked against.
 
         Returns:
@@ -1009,8 +1013,8 @@ class AbstractTriggerModule(AbstractProducingModule):
         right buffer
 
         Args:
+            data (dict): A dictionary with data that can be used for the trigger
             update_type (UpdateType): The update type that the IU should have. Default
                 is UpdateType.ADD
-            data (dict): A dictionary with data that can be used for the trigger
         """
         raise NotImplementedError()

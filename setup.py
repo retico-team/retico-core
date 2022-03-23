@@ -14,13 +14,15 @@ try:
 except ImportError:
     from distutils.core import setup
 
+import retico_core
+
 config = {
     "description": "A framework for real time incremental dialogue processing.",
     "author": "Thilo Michael",
     "url": "??",
     "download_url": "??",
     "author_email": "thilo.michael@tu-berlin.de",
-    "version": "0.2.0",
+    "version": retico_core.__version__,
     "install_requires": ["pyaudio~=0.2.11"],
     "packages": find_packages(),
     "name": "retico-core",
