@@ -10,6 +10,7 @@ import threading
 import queue
 import time
 import wave
+import platform
 
 try:
     import pyaudio
@@ -257,14 +258,15 @@ class SpeakerModule(AbstractConsumingModule):
         """Set up the speaker for outputting audio"""
         p = self._p
 
-        # MacOS-only code...
-        # TODO: Figure out if this crashes on Linux and Windows
-        if self.use_speaker == "left":
-            stream_info = pyaudio.PaMacCoreStreamInfo(channel_map=(0, -1))
-        elif self.use_speaker == "right":
-            stream_info = pyaudio.PaMacCoreStreamInfo(channel_map=(-1, 0))
+        if platform.system() == "Darwin":
+            if self.use_speaker == "left":
+                stream_info = pyaudio.PaMacCoreStreamInfo(channel_map=(0, -1))
+            elif self.use_speaker == "right":
+                stream_info = pyaudio.PaMacCoreStreamInfo(channel_map=(-1, 0))
+            else:
+                stream_info = pyaudio.PaMacCoreStreamInfo(channel_map=(0, 0))
         else:
-            stream_info = pyaudio.PaMacCoreStreamInfo(channel_map=(0, 0))
+            stream_info = None
 
         self.stream = p.open(
             format=p.get_format_from_width(self.sample_width),
