@@ -25,14 +25,22 @@ class DebugModule(abstract.AbstractConsumingModule):
     def input_ius():
         return [abstract.IncrementalUnit]
 
+    def __init__(self, print_payload_only=False):
+        super().__init__()
+        self.print_payload_only = print_payload_only
+
     def process_update(self, update_message):
-        print(f"Debug: Update Message ({len(update_message)})")
-        for i, (iu, ut) in enumerate(update_message):
-            print(f"{i}: {iu} (UpdateType: {ut})")
-            print("  PreviousIU:", iu.previous_iu)
-            print("  GroundedInIU:", iu.grounded_in)
-            print("  Age:", iu.age())
-        print(f"End of Debug Message")
+        if self.print_payload_only:
+            for iu, ut in update_message:
+                print(ut, iu.payload)
+        else:
+            print(f"Debug: Update Message ({len(update_message)})")
+            for i, (iu, ut) in enumerate(update_message):
+                print(f"{i}: {iu} (UpdateType: {ut})")
+                print("  PreviousIU:", iu.previous_iu)
+                print("  GroundedInIU:", iu.grounded_in)
+                print("  Age:", iu.age())
+            print(f"End of Debug Message")
 
 
 class CallbackModule(abstract.AbstractConsumingModule):
