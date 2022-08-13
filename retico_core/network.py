@@ -3,7 +3,8 @@ Network Module
 ==============
 
 
-A Module that allows for saving and loading networks from and to file.
+A Module that allows for saving and loading networks from and to file as well as
+starting and stopping them based on only a single module.
 """
 
 import pickle
@@ -73,6 +74,85 @@ def _discover_modules(module):
         if rb and rb.consumer:
             discovered_rbs.append(rb.consumer)
     return set(discovered_lb), set(discovered_rbs)
+
+
+def run(module):
+    """Properly prepares and runs a network based on one module or a list of modules.
+
+    The network is automatically discovered so that only one module of the network has
+    to be given to this function for the whole network to be executed. The function
+    first calls the `setup` function of each module in the network and then runs all
+    modules.
+
+    Args:
+        module (Abstract Module or list): A module of the network or a list of multiple
+            module of the network
+    """
+    m_list, _ = discover(module)
+
+    for m in m_list:
+        m.setup()
+
+    for m in m_list:
+        m.run(run_setup=False)
+
+
+def stop(module):
+    """Properlystops a network based on one module or a list of modules.
+
+    The network is automatically discovered so that only one module of the network has
+    to be given to this function for the whole network to be stopped.
+
+    Args:
+        module (Abstract Module or list): A module of the network or a list of multiple
+            module of the network
+    """
+    m_list, _ = discover(module)
+
+    for m in m_list:
+        m.stop()
+
+
+def discover(module):
+    """Discovers all modules and connections from a single a list of modules.
+
+    The network is automatically discovered by traversing all left and right buffers of
+    the modules given. If the argment module is only a single module, the network that
+    is constructed consist only of modules and connections reachable by that module. A
+    segmented network needs a module of each part of the network.
+
+    The function returns a touple containing a list of module and a list of connections
+    between the modules. The connections are touples containing the providing module of
+    the connection as the first element and the receiving module as the second element.
+
+    Args:
+        module (AbstractModule or list): A module of the network or a list of multiple
+            modules of the network
+
+    Returns:
+        list, list: A list of modules in the first return value and
+            a list of connections in the second return value.
+    """
+    if not isinstance(module, list):
+        module = [module]
+    undiscovered = set(module)
+    discovered = []
+    m_list = []
+    c_list = []
+    while undiscovered:
+        current_module = undiscovered.pop()
+        discovered.append(current_module)
+        lbs, rbs = _discover_modules(current_module)
+        for mod in lbs:
+            if mod not in discovered:
+                undiscovered.add(mod)
+        for mod in rbs:
+            if mod not in discovered:
+                undiscovered.add(mod)
+        m_list.append(current_module)
+        for buf in current_module.right_buffers():
+            c_list.append((buf.consumer, buf.provider))
+    return m_list, c_list
 
 
 def save(module, filename):

@@ -1,5 +1,14 @@
-Full Reference
-==============
+retico\_core package
+====================
+
+.. automodule:: retico_core
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Submodules
+----------
+
 
 .. automodule:: retico_core.abstract
    :members:

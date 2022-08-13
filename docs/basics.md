@@ -80,20 +80,12 @@ m3 = Module3()
 m1.subscribe(m2)
 m2.subscribe(m3)
 
-m1.setup()
-m2.setup()
-m3.setup()
-
-m1.run(run_setup=False)
-m2.run(run_setup=False)
-m3.run(run_setup=False)
+retico.network.run(m1)
 
 # Wait for an input from the user
 input()
 
-m1.stop()
-m2.stop()
-m3.stop()
+retico.network.stop(m1)
 ```
 
 ### Main Update Loop

@@ -5,4 +5,4 @@ from retico_core import network
 from retico_core import text
 from retico_core import dialogue
 
-__version__ = "0.2.1"  # This is the version that is used basically everywhere
+__version__ = "0.2.2"  # This is the version that is used basically everywhere
