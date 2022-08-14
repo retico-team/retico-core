@@ -12,10 +12,7 @@ import time
 import wave
 import platform
 
-try:
-    import pyaudio
-except ImportError:
-    pass
+import pyaudio
 
 from retico_core import *
 

@@ -14,7 +14,7 @@ try:
 except ImportError:
     from distutils.core import setup
 
-import retico_core
+exec(open("retico_core/version.py").read())
 
 import pathlib
 
@@ -30,10 +30,10 @@ config = {
     "author_email": "uhlomuhlo@gmail.com",
     "url": "https://github.com/retico-team/retico-core",
     "download_url": "https://github.com/retico-team/retico-core",
-    "version": retico_core.__version__,
+    "version": __version__,
     "python_requires": ">=3.6, <4",
     "keywords": "retico, framework, incremental, dialogue, dialog",
-    "install_requires": ["pyaudio~=0.2.11"],
+    "install_requires": ["pyaudio~=0.2"],
     "packages": find_packages(),
     "name": "retico-core",
     "classifiers": [
