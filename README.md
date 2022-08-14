@@ -1,5 +1,7 @@
 # retico-core
 
+[![Documentation Status](https://readthedocs.org/projects/retico-core/badge/?version=latest)](https://retico-core.readthedocs.io/en/latest/?badge=latest)
+
 This project includes the core functionality of the retico framework. This includes the
 abstract, general definitions of incremental modules and incremental units (IUs), as
 well as modules and IUs for audio input/output, debugging, dialogue, and text
