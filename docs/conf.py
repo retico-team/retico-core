@@ -13,8 +13,7 @@
 import os
 import sys
 
-sys.path.insert(0, os.path.abspath(os.path.join("..")))
-import retico_core
+exec(open("../retico_core/version.py").read())
 
 # -- Project information -----------------------------------------------------
 
@@ -23,7 +22,7 @@ copyright = "2022, Thilo Michael"
 author = "Thilo Michael"
 
 # The full version, including alpha/beta/rc tags
-release = retico_core.__version__
+release = __version__
 
 
 # -- General configuration ---------------------------------------------------
