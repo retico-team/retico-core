@@ -184,7 +184,7 @@ class MicrophoneModule(AbstractProducingModule):
             return None
         try:
             sample = self.audio_buffer.get(timeout=1.0)
-        except queue.EmptyException:
+        except queue.Empty:
             return None
         output_iu = self.create_iu()
         output_iu.set_audio(sample, self.chunk_size, self.rate, self.sample_width)
