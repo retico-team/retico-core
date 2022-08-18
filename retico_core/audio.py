@@ -179,10 +179,13 @@ class MicrophoneModule(AbstractProducingModule):
         self.audio_buffer = queue.Queue()
         self.stream = None
 
-    def process_update(self, update_message):
+    def process_update(self, _):
         if not self.audio_buffer:
             return None
-        sample = self.audio_buffer.get()
+        try:
+            sample = self.audio_buffer.get(timeout=1.0)
+        except queue.EmptyException:
+            return None
         output_iu = self.create_iu()
         output_iu.set_audio(sample, self.chunk_size, self.rate, self.sample_width)
         return UpdateMessage.from_iu(output_iu, UpdateType.ADD)
