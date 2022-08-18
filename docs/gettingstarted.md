@@ -88,8 +88,8 @@ a {class}`MicrophoneModule<retico_core.audio.MicrophoneModule>` as well as a
 ```python
 from retico_core.audio import MicrophoneModule, SpeakerModule
 
-microphone_module = MicrophoneModule(chunk_size=4410)
-speaker_module = SpeakerModule(chunk_size=4410)
+microphone_module = MicrophoneModule()
+speaker_module = SpeakerModule()
 ```
 
 Both the MicrophoneModule and the SpeakerModule take `chunk_size` as an argument. This

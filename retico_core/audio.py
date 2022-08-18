@@ -159,18 +159,18 @@ class MicrophoneModule(AbstractProducingModule):
         self.audio_buffer.put(in_data)
         return (in_data, pyaudio.paContinue)
 
-    def __init__(self, chunk_size, rate=44100, sample_width=2, **kwargs):
+    def __init__(self, frame_length=0.02, rate=44100, sample_width=2, **kwargs):
         """
         Initialize the Microphone Module.
 
         Args:
-            chunk_size (int): The number of frames that should be stored in one
-                AudioIU
+            frame_length (float): The length of one frame (i.e., IU) in seconds
             rate (int): The frame rate of the recording
             sample_width (int): The width of a single sample of audio in bytes.
         """
         super().__init__(**kwargs)
-        self.chunk_size = chunk_size
+        self.frame_length = frame_length
+        self.chunk_size = round(rate * frame_length)
         self.rate = rate
         self.sample_width = sample_width
 
@@ -312,17 +312,17 @@ class StreamingSpeakerModule(AbstractConsumingModule):
                 pass
         return (b"\0" * frame_count * self.sample_width, pyaudio.paContinue)
 
-    def __init__(self, chunk_size, rate=44100, sample_width=2, **kwargs):
+    def __init__(self, frame_length=0.02, rate=44100, sample_width=2, **kwargs):
         """Initialize the streaming speaker module.
 
         Args:
-            chunk_size (int): The number of frames a buffer of the output stream
-                should have.
+            frame_length (float): The length of one frame (i.e., IU) in seconds.
             rate (int): The frame rate of the audio. Defaults to 44100.
             sample_width (int): The sample width of the audio. Defaults to 2.
         """
         super().__init__(**kwargs)
-        self.chunk_size = chunk_size
+        self.frame_length = frame_length
+        self.chunk_size = round(rate * frame_length)
         self.rate = rate
         self.sample_width = sample_width
 
@@ -371,6 +371,7 @@ class AudioDispatcherModule(AbstractModule):
     an incremental way.
 
     Attributes:
+        target_frame_length (float): The size of each output IU in seconds.
         target_chunk_size (int): The size of each output IU in samples.
         silence (bytes): A bytes array containing [target_chunk_size] samples
             of silence that is dispatched when [continuous] is True and no input
@@ -411,7 +412,7 @@ class AudioDispatcherModule(AbstractModule):
 
     def __init__(
         self,
-        target_chunk_size,
+        target_frame_length=0.02,
         rate=44100,
         sample_width=2,
         speed=1.0,
@@ -423,7 +424,7 @@ class AudioDispatcherModule(AbstractModule):
         """Initialize the AudioDispatcherModule with the given arguments.
 
         Args:
-            target_chunk_size (int): The size of each output IU in samples.
+            target_frame_length (float): The length of each output IU in seconds.
             rate (int): The sample rate of the outout and the input IU.
             sample_width (int): The sample with of the output and input IU.
             speed (float): The speed of the dispatching. 1.0 means realtime.
@@ -431,7 +432,7 @@ class AudioDispatcherModule(AbstractModule):
                 continuous. If True, AudioIUs with "silence" will be dispatched
                 if no input IUs are being dispatched. If False, no IUs will be
                 produced during silence.
-            silence (bytes): A bytes array containing target_chunk_size samples
+            silence (bytes): A bytes array containing target_frame_length seconds of
                 of silence. If this argument is set to None, a default silence
                 of all zeros will be set.
             interrupt (boolean): If this flag is set, a new input IU with audio
@@ -441,9 +442,10 @@ class AudioDispatcherModule(AbstractModule):
                 False, dispatching will always be stopped.
         """
         super().__init__(**kwargs)
-        self.target_chunk_size = target_chunk_size
+        self.target_frame_length = target_frame_length
+        self.target_chunk_size = round(target_frame_length * rate)
         if not silence:
-            self.silence = b"\0" * target_chunk_size * sample_width
+            self.silence = b"\0" * self.target_chunk_size * sample_width
         else:
             self.silence = silence
         self.continuous = continuous
