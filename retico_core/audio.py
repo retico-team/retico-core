@@ -12,8 +12,6 @@ import queue
 import time
 import wave
 import platform
-import librosa
-import os
 
 import pyaudio
 
@@ -236,13 +234,14 @@ class AudioDataLoader(AbstractProducingModule):
     def output_iu():
         return AudioIU
 
-    def __init__(self, file_s = "",  iu_sound_length=0.1, rate=44100,no_sleep=True,  **kwargs):
+    def __init__(self, file_s = "",  sample_width=2, target_frame_length =.2, rate=44100,no_sleep=True,  **kwargs):
         """
-        Initialize the AudioDataLoaderForAzure Module.
+        Initialize the AudioDataLoader Module.
         Args:
             file_s (int): Directory to a list of audio file(s)
             rate (int): The frame rate of the recording
-            iu_sound_length (int): Number of seconds worth of samples to read.
+            sample_width (int): The width of a single sample of audio in bytes. [1,2,3] 
+            target_frame_length (int): intervals to seconds to send
             no_sleep (bool): Sleep for (iu_sound_length) for every function call
 
             Designed to mimic microphone module to avoid pyaudio requirment
@@ -250,28 +249,23 @@ class AudioDataLoader(AbstractProducingModule):
             During execution call add_files(<file Path>) to add more files to waitlist
         """
         super().__init__(**kwargs)
-        self._p = pyaudio.PyAudio()
-        self.files_queue = []
-        
-        #read file for files
-        self.add_files(file_s)
 
+        self.files_s = file_s
         self.no_sleep = no_sleep
+        self.frame_length = target_frame_length
+        self.chunk_size = round(rate * target_frame_length)
+        self.rate = rate
+        assert sample_width in [1,2,3], "sample_width must be 1, 2, or 3"
+        self.sample_width = round(sample_width)
 
-
-        rate = rate/2 #for some reason this works IDK why though... multipling (rate/2)*2 give two seconds of audio
-
-        import numpy as np
-        self.no_soundBoost = ((np.zeros(int(rate*1.5),np.float32))* 32767).astype(int)
+        # proccessing varibles
+        self.files_queue = []
         self.currentFileName = ""
-        self.iu_sound_length = iu_sound_length
         self.send_silence = False
         self.send_silence_first = False
-        self.send_silence_counter = 0
         self.audio = None
-        self.sr = rate
-        self.samples_per_IU_sound_length = int(self.sr*self.iu_sound_length)
-        self.sample_width = iu_sound_length  #I have no idea what sample width is, is it the same as iu_sound lengeth... whats the diffrence between frame and sample?
+        #read file for files
+
 
     def process_iu(self, input_iu):
 
@@ -280,7 +274,7 @@ class AudioDataLoader(AbstractProducingModule):
             #print("no files")
             if self.send_silence_first:
                 output_iu = self.create_iu()
-                output_iu.set_audio(self.no_soundBoost, int(self.sr*1.5), self.sr, self.sample_width)
+                output_iu.set_audio(self.no_soundBoost, int(self.rate*1.5), self.rate, self.sample_width)
                 output_iu.wavAudio = self.no_soundBoost
                 output_iu.currentFileName = ""
                 update_iu = UpdateMessage()
@@ -300,7 +294,7 @@ class AudioDataLoader(AbstractProducingModule):
 
 
             import librosa
-            (sig, rate) = librosa.load(self.files_queue[0],sr=self.sr)
+            (sig, rate) = librosa.load(self.files_queue[0],sr=self.rate/self.sample_width)
             self.audio = (sig* 32767).astype(int)
             
         
@@ -309,12 +303,12 @@ class AudioDataLoader(AbstractProducingModule):
             
 
 
-        if len(self.audio) >= self.samples_per_IU_sound_length:
+        if len(self.audio) >= self.chunk_size:
             # print("sending actual sound")
-            result = self.audio[:self.samples_per_IU_sound_length]
+            result = self.audio[:self.chunk_size]
 
             output_iu = self.create_iu()
-            output_iu.set_audio(result, self.samples_per_IU_sound_length, self.sr, self.sample_width)
+            output_iu.set_audio(result, self.chunk_size, self.rate, self.sample_width)
             output_iu.wavAudio = result
             output_iu.currentFileName = self.currentFileName
             # print(str(len(result)))
@@ -322,10 +316,10 @@ class AudioDataLoader(AbstractProducingModule):
             update_iu = UpdateMessage.from_iu(output_iu, UpdateType.ADD)
             self.append(update_iu)
             if self.no_sleep == False:
-                time.sleep(self.sample_width - .02)
+                time.sleep(self.frame_length - .01)
 
 
-            self.audio = self.audio[self.samples_per_IU_sound_length:]
+            self.audio = self.audio[self.chunk_size:]
             return None
 
         #commented out incase the function above remove the perfect amount of samples so that sample count = 0
@@ -334,7 +328,7 @@ class AudioDataLoader(AbstractProducingModule):
                 result = self.audio
 
                 output_iu = self.create_iu()
-                output_iu.set_audio(result, int(len(self.audio)/self.sr), self.sr, int(len(self.audio)/self.sr))
+                output_iu.set_audio(result, int(len(self.audio)/self.rate), self.rate, self.sample_width)
                 output_iu.wavAudio = result
                 output_iu.currentFileName = self.currentFileName
                 # print(str(len(result)))
@@ -348,7 +342,7 @@ class AudioDataLoader(AbstractProducingModule):
                 self.files_queue.pop(0)
                 
                 if self.no_sleep == False:
-                    time.sleep(self.sample_width - .02)
+                    time.sleep(self.frame_length - .02)
        
 
     def process_update(self,iu):
@@ -372,6 +366,9 @@ class AudioDataLoader(AbstractProducingModule):
 
 
     def setup(self):
+        self.add_files(self.files_s)
+        import numpy as np
+        self.no_soundBoost = ((np.zeros(int(self.rate*1.5),np.float32))* 32767).astype(int)
         pass
 
     def shutdown(self):
