@@ -236,29 +236,33 @@ class AudioDataLoader(AbstractProducingModule):
     def output_iu():
         return AudioIU
 
-    def __init__(self, file_s = "",  iu_sound_length=0.1, rate=44100,  **kwargs):
+    def __init__(self, file_s = "",  iu_sound_length=0.1, rate=44100,no_sleep=True,  **kwargs):
         """
         Initialize the AudioDataLoaderForAzure Module.
         Args:
-            file_s (int): Directory to a list of audio files or the audio file itself
-                AudioIU
+            file_s (int): Directory to a list of audio file(s)
             rate (int): The frame rate of the recording
-            iu_sound_length (int): The width of a single sample of audio in bytes.
+            iu_sound_length (int): Number of seconds worth of samples to read.
+            no_sleep (bool): Sleep for (iu_sound_length) for every function call
 
-            Designed to be as close to MicroPhone input module as possible
+            Designed to mimic microphone module to avoid pyaudio requirment
 
             During execution call add_files(<file Path>) to add more files to waitlist
         """
         super().__init__(**kwargs)
         self._p = pyaudio.PyAudio()
-        self.files = []
+        self.files_queue = []
         
         #read file for files
         self.add_files(file_s)
 
+        self.no_sleep = no_sleep
+
+
+        rate = rate/2 #for some reason this works IDK why though... multipling (rate/2)*2 give two seconds of audio
 
         import numpy as np
-        self.no_soundBoost = ((np.zeros(int(28000),np.float32))* 32767).astype(int)
+        self.no_soundBoost = ((np.zeros(int(rate*1.5),np.float32))* 32767).astype(int)
         self.currentFileName = ""
         self.iu_sound_length = iu_sound_length
         self.send_silence = False
@@ -267,23 +271,27 @@ class AudioDataLoader(AbstractProducingModule):
         self.audio = None
         self.sr = rate
         self.samples_per_IU_sound_length = int(self.sr*self.iu_sound_length)
-        self.sample_width = 2 #I have no idea what this is (it works with this)
+        self.sample_width = iu_sound_length  #I have no idea what sample width is, is it the same as iu_sound lengeth... whats the diffrence between frame and sample?
 
     def process_iu(self, input_iu):
 
 
-        if len(self.files) == 0 or self.send_silence_first:
+        if len(self.files_queue) == 0 or self.send_silence_first:
             #print("no files")
             if self.send_silence_first:
                 output_iu = self.create_iu()
-                output_iu.set_audio(self.no_soundBoost, self.samples_per_IU_sound_length, 16000, self.sample_width)
+                output_iu.set_audio(self.no_soundBoost, int(self.sr*1.5), self.sr, self.sample_width)
                 output_iu.wavAudio = self.no_soundBoost
                 output_iu.currentFileName = ""
                 update_iu = UpdateMessage()
                 update_iu = UpdateMessage.from_iu(output_iu, UpdateType.ADD)  
                 self.append(update_iu)
                 self.send_silence_first = False
-            time.sleep(.2)
+
+                if self.no_sleep == False:
+                    time.sleep(1.5 + .5) #extra .5 seconds for it to catchup
+
+
             
             return None
 
@@ -292,14 +300,13 @@ class AudioDataLoader(AbstractProducingModule):
 
 
             import librosa
-            (sig, rate) = librosa.load(self.files[0],sr=64000)
-            sig = librosa.resample(sig, orig_sr=rate, target_sr=self.sr/2,res_type='fft')
+            (sig, rate) = librosa.load(self.files_queue[0],sr=self.sr)
             self.audio = (sig* 32767).astype(int)
             
         
-            print("audio loaded: " + str(self.files[0]))
-            self.currentFileName = self.files[0]
-            self.files.pop(0)
+            print("\naudio loaded: " + str(self.files_queue[0]))
+            self.currentFileName = self.files_queue[0]
+            
 
 
         if len(self.audio) >= self.samples_per_IU_sound_length:
@@ -314,17 +321,20 @@ class AudioDataLoader(AbstractProducingModule):
             update_iu = UpdateMessage()
             update_iu = UpdateMessage.from_iu(output_iu, UpdateType.ADD)
             self.append(update_iu)
+            if self.no_sleep == False:
+                time.sleep(self.sample_width - .02)
 
 
             self.audio = self.audio[self.samples_per_IU_sound_length:]
             return None
 
-        elif len(self.audio) > 0 and len(self.audio) < self.samples_per_IU_sound_length:
+        #commented out incase the function above remove the perfect amount of samples so that sample count = 0
+        else:# len(self.audio) > 0 and len(self.audio) < self.samples_per_IU_sound_length: 
                 # print("sending actual sound 2")
                 result = self.audio
 
                 output_iu = self.create_iu()
-                output_iu.set_audio(result, self.samples_per_IU_sound_length, self.sr, self.sample_width)
+                output_iu.set_audio(result, int(len(self.audio)/self.sr), self.sr, int(len(self.audio)/self.sr))
                 output_iu.wavAudio = result
                 output_iu.currentFileName = self.currentFileName
                 # print(str(len(result)))
@@ -335,6 +345,10 @@ class AudioDataLoader(AbstractProducingModule):
                 self.send_silence = True
                 self.send_silence_first = True
                 self.audio = None
+                self.files_queue.pop(0)
+                
+                if self.no_sleep == False:
+                    time.sleep(self.sample_width - .02)
        
 
     def process_update(self,iu):
@@ -350,10 +364,10 @@ class AudioDataLoader(AbstractProducingModule):
         if '.' in file_extention:
             assert '.wav' in file_extention or '.mp3' in file_extention, "\"{}\" is not a support file type".format(file_extention)
             #TODO check other formats supported by librosa
-            self.files.append(file_path)
+            self.files_queue.append(file_path)
 
         else:
-            self.files = self.files + [file_path +  '/' + f for f in os.listdir(file_path) if ('.wav' in f or ".mp3" in f)]
+            self.files_queue = self.files_queue + [file_path +  '/' + f for f in os.listdir(file_path) if ('.wav' in f or ".mp3" in f)]
 
 
 
