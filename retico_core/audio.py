@@ -233,7 +233,7 @@ class AudioDataLoader(AbstractProducingModule):
     def output_iu():
         return AudioIU
 
-    def __init__(self, file_s = "",  sample_width=2, target_frame_length =.2, rate=44100,no_sleep=True,  **kwargs):
+    def __init__(self, file_s = "",  sample_width=2, target_frame_length =.2, rate=44100,no_sleep=False, sec_between_files = 1.7, **kwargs):
         """
         Initialize the AudioDataLoader Module.
         Args:
@@ -256,6 +256,7 @@ class AudioDataLoader(AbstractProducingModule):
         self.rate = rate
         assert sample_width in [1,2,3], "sample_width must be 1, 2, or 3"
         self.sample_width = round(sample_width)
+        self.waitTime = sec_between_files
 
         # proccessing varibles
         self.files_queue = []
@@ -271,18 +272,16 @@ class AudioDataLoader(AbstractProducingModule):
 
         if len(self.files_queue) == 0 or self.send_silence_first:
             #print("no files")
-            if self.send_silence_first:
-                output_iu = self.create_iu()
-                output_iu.set_audio(self.no_soundBoost, int(self.rate*1.5), self.rate, self.sample_width)
-                output_iu.wavAudio = self.no_soundBoost
-                output_iu.currentFileName = ""
-                update_iu = UpdateMessage()
-                update_iu = UpdateMessage.from_iu(output_iu, UpdateType.ADD)  
-                self.append(update_iu)
-                self.send_silence_first = False
+            output_iu = self.create_iu()
+            output_iu.set_audio(self.no_soundBoost, int(self.rate*self.waitTime), self.rate, self.sample_width)
+            output_iu.wavAudio = self.no_soundBoost
+            output_iu.currentFileName = ""
+            update_iu = UpdateMessage()
+            update_iu = UpdateMessage.from_iu(output_iu, UpdateType.ADD)  
+            self.append(update_iu)
+            self.send_silence_first = False
 
-                if self.no_sleep == False:
-                    time.sleep(1.5 + .5) #extra .5 seconds for it to catchup
+            time.sleep(self.waitTime + .5) #extra .5 seconds for it to catchup
 
 
             
@@ -367,7 +366,7 @@ class AudioDataLoader(AbstractProducingModule):
     def setup(self):
         self.add_files(self.files_s)
         import numpy as np
-        self.no_soundBoost = ((np.zeros(int(self.rate*1.5),np.float32))* 32767).astype(int)
+        self.no_soundBoost = ((np.zeros(int(self.rate*self.waitTime),np.float32))* 32767).astype(int)
         pass
 
     def shutdown(self):
