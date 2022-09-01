@@ -6,7 +6,6 @@ This module defines basic incremental units and incremental modules to handle
 audio input (via a standard microphone) and output.
 """
 
-from importlib.metadata import files
 import threading
 import queue
 import time
