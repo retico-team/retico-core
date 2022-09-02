@@ -100,7 +100,7 @@ class SpeechIU(AudioIU):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.disptach = False
+        self.dispatch = False
 
 
 class DispatchedAudioIU(AudioIU):
