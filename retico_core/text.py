@@ -203,6 +203,7 @@ class TextDispatcherModule(AbstractModule):
             output_iu.dispatch = True
             if isinstance(iu, SpeechRecognitionIU) and self.dispatch_final:
                 output_iu.dispatch = iu.final
+            output_iu.committed = iu.committed
             um.add_iu(output_iu, ut)
         return um
 
