@@ -6,7 +6,7 @@ After reading this part of the documentation, you should be able to create your 
 
 ## Incremental Units
 
-Incremental units are the general package for every type of information that should be transmitted incrementally. Each incremental unit finally inherits from the abstract class {class}`IncrementalUnit<retico_core.abstract.IncrementalUnit>` and has a set of basic functionalities. Many of these basic properties are driven by the incremental module itself, others require an incremental module to update information. 
+Incremental units are the general package for every type of information that should be transmitted incrementally. Each incremental unit finally inherits from the abstract class {class}`IncrementalUnit<retico_core.abstract.IncrementalUnit>` and has a set of basic functionalities. Many of these basic properties are driven by the incremental module itself, others require an incremental module to update information.
 
 ### Basic attributes
 
@@ -52,7 +52,7 @@ IUs can be added to an UpdateMessage with the {meth}`add_iu<retico_core.abstract
 
 The method {meth}`has_valid_ius<retico_core.abstract.UpdateMessage.has_valid_ius>` takes an IU class or a list of IU classes as an argument and returns whether all IUs in the UpdateMessage are instances of that class (or list of classes).
 
-The {meth}`update_types<retico_core.abstract.UpdateMessage.update_types>` and {meth}`incremental_units<retico_core.abstract.UpdateMessage.incremental_units>` methods are generators that give access to the update types or IUs, respectively. 
+The {meth}`update_types<retico_core.abstract.UpdateMessage.update_types>` and {meth}`incremental_units<retico_core.abstract.UpdateMessage.incremental_units>` methods are generators that give access to the update types or IUs, respectively.
 
 ## Incremental Queue
 
@@ -64,13 +64,13 @@ The {class}`IncrementalQueue<retico_core.abstract.IncrementalQueue>` inherits fr
 
 An incremental module might be instantiated with a specific `queue_class` (of type {class}`IncrementalQueue<retico_core.abstract.IncrementalQueue>`), that is used for transmitting the incremental units. Additionally, `meta_data` can be provided as a dict. This meta-information may be used by a user interface to store position and other information about a module. This meta-data is also preserved when the module is saved to disk.
 
-Generally, an incremental module needs to implement the following methods: {meth}`name<retico_core.abstract.AbstractModule.name>`, {meth}`description<retico_core.abstract.AbstractModule.description>`, {meth}`input_ius<retico_core.abstract.AbstractModule.input_ius>`, and {meth}`output_iu<retico_core.abstract.AbstractModule.output_iu>`. The `name` method should return the name and the `description` method the description of the incremental module in a human readable format. The `input_ius` method should return a list of all incremental unit classes that are acceptable as an input to the module. The `output_iu` method should return the class of the incremental units that are produced by the module. 
+Generally, an incremental module needs to implement the following methods: {meth}`name<retico_core.abstract.AbstractModule.name>`, {meth}`description<retico_core.abstract.AbstractModule.description>`, {meth}`input_ius<retico_core.abstract.AbstractModule.input_ius>`, and {meth}`output_iu<retico_core.abstract.AbstractModule.output_iu>`. The `name` method should return the name and the `description` method the description of the incremental module in a human readable format. The `input_ius` method should return a list of all incremental unit classes that are acceptable as an input to the module. The `output_iu` method should return the class of the incremental units that are produced by the module.
 
 ### Connecting modules
 
 A network of multiple incrmental modules can be created by connecting modules with an incremental queue. This connection can be performed with the {meth}`subscribe<retico_core.abstract.AbstractModule.subscribe>` method, which takes an incremental module as an input and creates an incremental queue in which the update messages of the module on which `subscribe` is called are routed to the left buffer of the module which is given as an argument. For example, `a.subscribe(b)` would create an incremental queue in which the updatge messages in the right buffer of `a` are routed into the left buffer of `b`. The resulting left and right buffers can be accessed with the {meth}`left_buffers<retico_core.abstract.AbstractModule.left_buffers>` and {meth}`right_buffers<retico_core.abstract.AbstractModule.right_buffers>` methods respectively.
 
-The execution of a module can be started with the {meth}`run<retico_core.abstract.AbstractModule.run>` method, which runs the setup method per default. The argument `run_setup` defines whether the setup method should be exectued before the execution. The execution can be stopped with the {meth}`stop<retico_core.abstract.AbstractModule.stop>` method. An example on how to connect an run a network may look like this:
+The execution of a module can be started with the {meth}`run<retico_core.abstract.AbstractModule.run>` method, which runs the setup method per default. The argument `run_setup` defines whether the setup method should be exectued before the execution. The execution can be stopped with the {meth}`stop<retico_core.abstract.AbstractModule.stop>` method. An example on how to connect and run a network may look like this:
 
 ```python
 m1 = Module1()
@@ -120,9 +120,9 @@ The AbstractModule defines and uses the following events:
 
 ### Producing Modules
 
-The {class}`AbstractProducingModule<retico_core.abstract.AbstractProducingModule>` defines the general behavior of a moudle that does not have a left buffer and thus not takes any IUs as an input. This class might be used for the recording of external sources like a microphone.
+The {class}`AbstractProducingModule<retico_core.abstract.AbstractProducingModule>` defines the general behavior of a module that does not have a left buffer and thus does not take any IUs as an input. This class might be used for the recording of external sources like a microphone.
 
-In the producing module the `process_update` method is called continuously with `None` as an input. This is a simple solution to producing incremental units. The `input_ius` method returns an empty array and thus, it does not accept any input IUs. 
+In the producing module the `process_update` method is called continuously with `None` as an input. This is a simple solution to producing incremental units. The `input_ius` method returns an empty array and thus, it does not accept any input IUs.
 
 ### Consuming Modules
 
@@ -135,9 +135,9 @@ In the consuming module, the `subscribe` method returns a ValueError and also th
 
 A trigger module is a form of a producing module that implements a {meth}`trigger<retico_core.abstract.AbstractTriggerModule.trigger>` method. This method may be called to produce an IU. This module makes it possible to introduce new IUs to the system for debug purposes or to connect user driven input to a network.
 
-## Savind and loading incremental networks
+## Saving and loading incremental networks
 
-The {class}`Network<retico_core.network>` module provides functions to save and load networks. The {meth}`save<retico_core.network.save>` function takes a module and an a filename as arguments. Through a discovery process, the network is extracted from the module and stored into a file. For the serialization pythons `pickle` functionality is used.
+The {class}`Network<retico_core.network>` module provides functions to save and load networks. The {meth}`save<retico_core.network.save>` function takes a module and an a filename as arguments. Through a discovery process, the network is extracted from the module and stored into a file. For the serialization, python's `pickle` functionality is used.
 
 
 The {meth}`load<retico_core.network.load>` function loads the file given in the parameter and returns a list of modules and a list of connections between those module. The modules are already connected in the way they were saved. The connections list contains tuples of two modules that are connected to each other.
