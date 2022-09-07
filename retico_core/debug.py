@@ -7,7 +7,7 @@ incremental unit.
 """
 
 
-from retico_core import abstract
+from retico_core import abstract, text
 
 
 class DebugModule(abstract.AbstractConsumingModule):
@@ -71,3 +71,42 @@ class CallbackModule(abstract.AbstractConsumingModule):
 
     def process_update(self, update_message):
         self.callback(update_message)
+
+
+class TextPrinterModule(abstract.AbstractConsumingModule):
+    """A debug module that prints the incoming text and updates it as text IUs are
+    arriving. Once an IU is committed, the next incoming text is printed in a new
+    line."""
+
+    @staticmethod
+    def name():
+        return "Text Printer Module"
+
+    @staticmethod
+    def description():
+        return "A module that prints out and updates text."
+
+    @staticmethod
+    def input_ius():
+        return [text.TextIU]
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.msg = []
+
+    def process_update(self, update_message):
+        for x, ut in update_message:
+            if ut == abstract.UpdateType.ADD:
+                self.msg.append(x)
+            if ut == abstract.UpdateType.REVOKE:
+                self.msg.remove(x)
+        txt = ""
+        committed = False
+        for x in self.msg:
+            txt += x.text + " "
+            committed = committed or x.committed
+        print(" " * 100, end="\r")
+        print(f"{txt}", end="\r")
+        if committed:
+            self.msg = []
+            print("")
