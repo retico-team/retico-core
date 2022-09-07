@@ -100,7 +100,7 @@ class SpeechIU(AudioIU):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.disptach = False
+        self.dispatch = False
 
 
 class DispatchedAudioIU(AudioIU):
@@ -133,7 +133,7 @@ class DispatchedAudioIU(AudioIU):
 
 
 class MicrophoneModule(AbstractProducingModule):
-    """A module that produces IUs containing audio signals that are captures by
+    """A module that produces IUs containing audio signals that are captured by
     a microphone."""
 
     @staticmethod
@@ -142,7 +142,7 @@ class MicrophoneModule(AbstractProducingModule):
 
     @staticmethod
     def description():
-        return "A prodicing module that records audio from microphone."
+        return "A producing module that records audio from microphone."
 
     @staticmethod
     def output_iu():
