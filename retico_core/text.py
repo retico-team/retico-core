@@ -25,6 +25,16 @@ class TextIU(IncrementalUnit):
         """
         return self.payload
 
+    def set_text(self, text):
+        """Sets the text contained in the IU.
+
+        Args:
+            text (str): The new text of the IU
+        """
+        self.payload = text
+
+    text = property(get_text, set_text)
+
 
 class GeneratedTextIU(TextIU):
     """An IU that contains generated text.
