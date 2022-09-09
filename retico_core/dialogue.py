@@ -6,10 +6,11 @@ This module contains basic dialogue functionality, like a :class:`.DialogueActIU
 a dialogue manager.
 """
 
-from retico_core import *
+import retico_core
+import time
 
 
-class DialogueActIU(IncrementalUnit):
+class DialogueActIU(retico_core.IncrementalUnit):
     """A Dialog Act Incremental Unit.
 
     This IU represents a Dialogue Act together with concepts and their
@@ -87,7 +88,7 @@ class DispatchableActIU(DialogueActIU):
         self.dispatch = dispatch
 
 
-class EndOfTurnIU(IncrementalUnit):
+class EndOfTurnIU(retico_core.IncrementalUnit):
     """An incremental unit used for prediction of the end of the turn. This
     information may be used by a dialogue management module to plan next turns
     and enabling realistic turn taking.
@@ -114,7 +115,7 @@ class EndOfTurnIU(IncrementalUnit):
         self.probability = probability
 
 
-class DialogueActRecorderModule(AbstractConsumingModule):
+class DialogueActRecorderModule(retico_core.AbstractConsumingModule):
     """A module that writes dispatched dialogue acts to file."""
 
     @staticmethod
@@ -148,7 +149,7 @@ class DialogueActRecorderModule(AbstractConsumingModule):
 
     def process_update(self, update_message):
         for iu, ut in update_message:
-            if ut != UpdateType.ADD:
+            if ut != retico_core.UpdateType.ADD:
                 continue
             if self.txt_file:
                 self.txt_file.write("dialogue_act")
@@ -171,7 +172,7 @@ class DialogueActRecorderModule(AbstractConsumingModule):
                 self.txt_file.write("\n")
 
 
-class DialogueActTriggerModule(AbstractTriggerModule):
+class DialogueActTriggerModule(retico_core.AbstractTriggerModule):
     @staticmethod
     def name():
         return "Dialogue Act Trigger Module"
@@ -188,8 +189,8 @@ class DialogueActTriggerModule(AbstractTriggerModule):
         super().__init__(**kwargs)
         self.dispatch = True
 
-    def trigger(self, data={}, update_type=UpdateType.ADD):
+    def trigger(self, data={}, update_type=retico_core.UpdateType.ADD):
         output_iu = self.create_iu()
         output_iu.dispatch = self.dispatch
         output_iu.set_act(data.get("act", "greeting"), data.get("concepts", {}))
-        self.append(UpdateMessage.from_iu(output_iu, update_type))
+        self.append(retico_core.UpdateMessage.from_iu(output_iu, update_type))

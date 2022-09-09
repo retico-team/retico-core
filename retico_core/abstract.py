@@ -84,11 +84,11 @@ class IncrementalUnit:
     def __init__(
         self,
         creator=None,
-        iuid=0,
+        iuid=None,
         previous_iu=None,
         grounded_in=None,
         payload=None,
-        **kwargs
+        **kwargs,
     ):
         """Initialize an abstract IU. Takes the module that created the IU as an
         argument.
@@ -107,6 +107,8 @@ class IncrementalUnit:
         """
         self.creator = creator
         self.iuid = iuid
+        if self.iuid is None:
+            self.iuid = hash(self)
         self.previous_iu = previous_iu
         self.grounded_in = grounded_in
         self._processed_list = []
@@ -203,6 +205,11 @@ class IncrementalUnit:
             self.creator.name(),
             str(self.payload)[0:10],
         )
+
+    def __eq__(self, other):
+        if not isinstance(other, IncrementalUnit):
+            return False
+        return self.iuid == other.iuid
 
     @staticmethod
     def type():
@@ -457,7 +464,8 @@ class AbstractModule:
         self.mutex = threading.Lock()
         self.events = {}
 
-        self.current_ius = []
+        self.current_input = []
+        self.current_output = []
 
         self.meta_data = {}
         if meta_data:
@@ -470,44 +478,46 @@ class AbstractModule:
         self.iu_counter = 0
 
     def revoke(self, iu, remove_revoked=True):
-        """Revokes an IU form the list of the current_ius.
+        """Revokes an IU form the list of the current_input or current_output, depending
+        on in which list it is found.
 
         Args:
-            iu (IncrmentalUnit or list): The incremental unit or a list of incremental
-                units to revoke.
+            iu (IncrmentalUnit): The incremental unit to revoke.
             remove_revoked (bool): Whether the revoked incremental unit should be
-                deleted from the current_ius list or if only the revoked flag should
-                be set.
+                deleted from the current_input or current_output list or if only the
+                revoked flag should be set.
         """
-        if isinstance(iu, IncrementalUnit):
-            iu = [iu]
-        new_iu_list = []
-        for ciu in self.current_ius:
-            flag = False
-            for a in iu:
-                if ciu.iuid == a.iuid:
-                    ciu.revoked = True
-                    flag = True
-                    break
-            if not flag:
-                new_iu_list.append(ciu)
-        if remove_revoked:
-            self.current_ius = new_iu_list
+        if iu in self.current_input:
+            self.current_input[self.current_input.index(iu)].revoked = True
+            if remove_revoked:
+                self.current_input.remove(iu)
+        if iu in self.current_output:
+            self.current_output[self.current_output.index(iu)].revoked = True
+            if remove_revoked:
+                self.current_output.remove(iu)
 
     def commit(self, iu):
-        """Sets one or multiple IUs as commited from the list of the current_ius.
+        """Sets an IU as commited from the list of the current_input or current_output,
+        depending on where it is found.
 
         Args:
-            iu (IncrementalUnit or list): The incrementall unit or list of incremental
-                to set as committed.
+            iu (IncrementalUnit): The incremental unit to set as committed.
         """
-        if isinstance(iu, IncrementalUnit):
-            iu = [iu]
-        for ciu in self.current_ius:
-            for i in iu:
-                if ciu.iuid == i.iuid:
-                    ciu.committed = True
-                    break
+        if iu in self.current_input:
+            self.current_input[self.current_input.index(iu)].committed = True
+        if iu in self.current_output:
+            self.current_output[self.current_output.index(iu)].committed = True
+
+    def input_committed(self):
+        """Checks whether all IUs in the input are commited.
+
+        Returns:
+            bool: True when all IUs in the current_input is commited, False otherwise.
+        """
+        for ciu in self.current_input:
+            if not ciu.committed:
+                return False
+        return True
 
     def add_left_buffer(self, left_buffer):
         """Add a new left buffer for the module.
@@ -830,7 +840,7 @@ class AbstractModule:
         """
         new_iu = self.output_iu()(
             creator=self,
-            iuid=self.iu_counter,
+            iuid=f"{hash(self)}:{self.iu_counter}",
             previous_iu=self._previous_iu,
             grounded_in=grounded_in,
         )

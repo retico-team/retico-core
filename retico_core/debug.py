@@ -92,21 +92,20 @@ class TextPrinterModule(abstract.AbstractConsumingModule):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.msg = []
+        self._old_text = ""
 
     def process_update(self, update_message):
-        for x, ut in update_message:
+        for iu, ut in update_message:
             if ut == abstract.UpdateType.ADD:
-                self.msg.append(x)
-            if ut == abstract.UpdateType.REVOKE:
-                self.msg.remove(x)
-        txt = ""
-        committed = False
-        for x in self.msg:
-            txt += x.text + " "
-            committed = committed or x.committed
-        print(" " * 100, end="\r")
-        print(f"{txt}", end="\r")
-        if committed:
-            self.msg = []
+                self.current_input.append(iu)
+            elif ut == abstract.UpdateType.REVOKE:
+                self.revoke(iu)
+            elif ut == abstract.UpdateType.COMMIT:
+                self.commit(iu)
+        text = " ".join(iu.text for iu in self.current_input)
+        print(" " * len(self._old_text), end="\r")
+        print(text, end="\r")
+        self._old_text = text
+        if self.input_committed():
+            self.current_input = []
             print("")
