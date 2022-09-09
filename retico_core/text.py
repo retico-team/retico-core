@@ -15,9 +15,9 @@ def get_text_increment(module, new_text):
     produced (current_output) and returns only the increment from the last update. It
     revokes all previously produced IUs that do not match.
 
-    For example, if the `current_output` of the module consists of the follwing IUs:
+    For example, if the ``current_output`` of the module consists of the follwing IUs:
         [The] [quick] [bright]
-    and the `new_text` is:
+    and the ``new_text`` is:
         "The quick brown fox"
     The function would return a new UpdateMessage
         UpdateMessage([bright], REVOKE)
@@ -28,7 +28,7 @@ def get_text_increment(module, new_text):
     the example above), but rather REVOKEs all unfitting IUs.
 
     Args:
-        module (IncrementalModule): The incremental module that produces `TextIU`s
+        module (IncrementalModule): The incremental module that produces ``TextIU`` s
         new_text (str): The full new text that should be incrementalized
 
     Returns:
