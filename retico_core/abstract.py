@@ -497,7 +497,7 @@ class AbstractModule:
                 self.current_output.remove(iu)
 
     def commit(self, iu):
-        """Sets an IU as commited from the list of the current_input or current_output,
+        """Sets an IU as committed from the list of the current_input or current_output,
         depending on where it is found.
 
         Args:
@@ -509,10 +509,10 @@ class AbstractModule:
             self.current_output[self.current_output.index(iu)].committed = True
 
     def input_committed(self):
-        """Checks whether all IUs in the input are commited.
+        """Checks whether all IUs in the input are committed.
 
         Returns:
-            bool: True when all IUs in the current_input is commited, False otherwise.
+            bool: True when all IUs in the current_input is committed, False otherwise.
         """
         for ciu in self.current_input:
             if not ciu.committed:
