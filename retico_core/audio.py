@@ -24,6 +24,25 @@ TIMEOUT = 0.01
 """Timeout in seconds used for the StreamingSpeakerModule."""
 
 
+def show_audio_devices():
+    """Shows all availbale audio input and output devices using pyAudio."""
+    p = pyaudio.PyAudio()
+
+    info = p.get_host_api_info_by_index(0)
+
+    print("Output Devices:")
+    for i in range(info["deviceCount"]):
+        device = p.get_device_info_by_host_api_device_index(0, i)
+        if device["maxOutputChannels"] > 0:
+            print("  %s (%d)" % (device["name"], device["index"]))
+
+    print("\nInput Devices:")
+    for i in range(info["deviceCount"]):
+        device = p.get_device_info_by_host_api_device_index(0, i)
+        if device["maxInputChannels"] > 0:
+            print("  %s (%d)" % (device["name"], device["index"]))
+
+
 class AudioIU(retico_core.IncrementalUnit):
     """An audio incremental unit that receives raw audio data from a source.
 
@@ -237,13 +256,24 @@ class SpeakerModule(retico_core.AbstractConsumingModule):
     def output_iu():
         return None
 
-    def __init__(self, rate=44100, sample_width=2, use_speaker="both", **kwargs):
+    def __init__(
+        self,
+        rate=44100,
+        sample_width=2,
+        use_speaker="both",
+        device_index=None,
+        **kwargs
+    ):
         super().__init__(**kwargs)
         self.rate = rate
         self.sample_width = sample_width
         self.use_speaker = use_speaker
 
         self._p = pyaudio.PyAudio()
+
+        if device_index is None:
+            device_index = self._p.get_default_output_device_info()["index"]
+        self.device_index = device_index
 
         self.stream = None
         self.time = None
@@ -275,6 +305,7 @@ class SpeakerModule(retico_core.AbstractConsumingModule):
             input=False,
             output_host_api_specific_stream_info=stream_info,
             output=True,
+            output_device_index=self.device_index,
         )
 
     def shutdown(self):
