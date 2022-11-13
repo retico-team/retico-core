@@ -234,6 +234,148 @@ class MicrophoneModule(retico_core.AbstractProducingModule):
         self.stream = None
         self.audio_buffer = queue.Queue()
 
+class AudioDataLoader(retico_core.AbstractProducingModule):
+    """A module that produces IUs containing audio signals that are captures by
+        reading certain audio file."""
+
+    @staticmethod
+    def name():
+        return "DataLoader Module to to read mp3/wav files"
+
+    @staticmethod
+    def description():
+        return "A producing module that records audio from audio files. During execution call add_files(<file Path>) to add more files to the module"
+
+    @staticmethod
+    def output_iu():
+        return AudioIU
+
+    def __init__(self, file_s = "",  iu_sound_length=0.1, rate=44100,  **kwargs):
+        """
+        Initialize the AudioDataLoaderForAzure Module.
+        Args:
+            file_s (int): Directory to a list of audio files or the audio file itself
+                AudioIU
+            rate (int): The frame rate of the recording
+            iu_sound_length (int): The width of a single sample of audio in bytes.
+
+            Designed to be as close to MicroPhone input module as possible
+
+            During execution call add_files(<file Path>) to add more files to waitlist
+        """
+        super().__init__(**kwargs)
+        self._p = pyaudio.PyAudio()
+        self.files = []
+        
+        #read file for files
+        self.add_files(file_s)
+
+
+        import numpy as np
+        self.no_soundBoost = ((np.zeros(int(28000),np.float32))* 32767).astype(int)
+        self.currentFileName = ""
+        self.iu_sound_length = iu_sound_length
+        self.send_silence = False
+        self.send_silence_first = False
+        self.send_silence_counter = 0
+        self.audio = None
+        self.sr = rate
+        self.samples_per_IU_sound_length = int(self.sr*self.iu_sound_length)
+        self.sample_width = 2 #I have no idea what this is (it works with this)
+
+    def process_iu(self, input_iu):
+
+
+        if len(self.files) == 0 or self.send_silence_first:
+            #print("no files")
+            if self.send_silence_first:
+                output_iu = self.create_iu()
+                output_iu.set_audio(self.no_soundBoost, self.samples_per_IU_sound_length, 16000, self.sample_width)
+                output_iu.wavAudio = self.no_soundBoost
+                output_iu.currentFileName = ""
+                update_iu = retico_core.UpdateMessage()
+                update_iu = retico_core.UpdateMessage.from_iu(output_iu, retico_core.UpdateType.ADD)  
+                self.append(update_iu)
+                self.send_silence_first = False
+            time.sleep(.2)
+            
+            return None
+
+        # is it time to read a new file or do we just have a file
+        if self.audio is None:
+
+
+            import librosa
+            (sig, rate) = librosa.load(self.files[0],sr=64000)
+            sig = librosa.resample(sig, orig_sr=rate, target_sr=self.sr/2,res_type='fft')
+            self.audio = (sig* 32767).astype(int)
+            
+        
+            print("audio loaded: " + str(self.files[0]))
+            self.currentFileName = self.files[0]
+            self.files.pop(0)
+
+
+        if len(self.audio) >= self.samples_per_IU_sound_length:
+            # print("sending actual sound")
+            result = self.audio[:self.samples_per_IU_sound_length]
+
+            output_iu = self.create_iu()
+            output_iu.set_audio(result, self.samples_per_IU_sound_length, self.sr, self.sample_width)
+            output_iu.wavAudio = result
+            output_iu.currentFileName = self.currentFileName
+            # print(str(len(result)))
+            update_iu = retico_core.UpdateMessage()
+            update_iu = retico_core.UpdateMessage.from_iu(output_iu, retico_core.UpdateType.ADD)
+            self.append(update_iu)
+
+
+            self.audio = self.audio[self.samples_per_IU_sound_length:]
+            return None
+
+        elif len(self.audio) > 0 and len(self.audio) < self.samples_per_IU_sound_length:
+                # print("sending actual sound 2")
+                result = self.audio
+
+                output_iu = self.create_iu()
+                output_iu.set_audio(result, self.samples_per_IU_sound_length, self.sr, self.sample_width)
+                output_iu.wavAudio = result
+                output_iu.currentFileName = self.currentFileName
+                # print(str(len(result)))
+                update_iu = retico_core.UpdateMessage()
+                update_iu = retico_core.UpdateMessage.from_iu(output_iu, retico_core.UpdateType.ADD) 
+                self.append(update_iu)
+
+                self.send_silence = True
+                self.send_silence_first = True
+                self.audio = None
+       
+
+    def process_update(self,iu):
+        self.process_iu(iu)
+
+    def add_files(self,file_path):
+        self.send_silence = False
+
+        file_path = file_path.replace('\\',"/")
+        file_extention = file_path.replace('\\',"/").split('/')[-1]
+
+        if '.' in file_extention:
+            assert '.wav' in file_extention or '.mp3' in file_extention, "\"{}\" is not a support file type".format(file_extention)
+            #TODO check other formats supported by librosa
+            self.files.append(file_path)
+
+        else:
+            self.files = self.files + [file_path +  '/' + f for f in os.listdir(file_path) if ('.wav' in f or ".mp3" in f)]
+
+
+
+    def setup(self):
+        pass
+
+    def shutdown(self):
+        pass
+
 
 class SpeakerModule(retico_core.AbstractConsumingModule):
     """A module that consumes AudioIUs of arbitrary size and outputs them to the
