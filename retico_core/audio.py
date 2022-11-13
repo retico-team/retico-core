@@ -354,12 +354,12 @@ class AudioDataLoader(AbstractProducingModule):
         file_extention = file_path.replace('\\',"/").split('/')[-1]
 
         if '.' in file_extention:
-            assert '.wav' in file_extention or '.mp3' in file_extention, "\"{}\" is not a support file type".format(file_extention)
+            assert '.wav' in file_extention or '.mp3' in file_extention or '.flac' in file_extention, "\"{}\" is not a support file type".format(file_extention)
             #TODO check other formats supported by librosa
             self.files_queue.append(file_path)
 
         else:
-            self.files_queue = self.files_queue + [file_path +  '/' + f for f in os.listdir(file_path) if ('.wav' in f or ".mp3" in f)]
+            self.files_queue = self.files_queue + [file_path +  '/' + f for f in os.listdir(file_path) if ('.wav' in f or ".mp3" in f or ".flac" in f)]
 
 
 
