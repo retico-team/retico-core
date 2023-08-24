@@ -310,7 +310,7 @@ class IncrementalizeASRModule(retico_core.AbstractModule):
                 um, current_text = retico_core.text.get_text_increment(
                     self, current_text
                 )
-            if current_text.strip() == "":
+            if len(current_text) == 0:
                 continue
 
             output_iu = self.create_iu(iu)
