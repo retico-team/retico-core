@@ -315,6 +315,7 @@ class IncrementalizeASRModule(retico_core.AbstractModule):
 
             output_iu = self.create_iu(iu)
 
+            current_text =  current_text[0]
             # Just copy the input IU
             output_iu.set_asr_results(
                 iu.predictions,
