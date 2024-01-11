@@ -113,6 +113,35 @@ class EndOfTurnIU(retico_core.IncrementalUnit):
         """
         self.is_speaking = is_speaking
         self.probability = probability
+        
+class GenericDictIU(retico_core.IncrementalUnit):
+    """A Generic IU type that holds dictionaries
+
+    - dictionaries can be turned into JSON for interop
+    - dictionary can be added to a dialogue state
+
+    """
+
+    @staticmethod
+    def type():
+        return "Generic Dictionary IU"
+
+    def __init__(self, creator=None, iuid=0, previous_iu=None, grounded_in=None,
+                 payload=None, **kwargs):
+        """Initialize the GenericDictIU with a payload
+
+        Args:
+        """
+        super().__init__(creator=creator, iuid=iuid, previous_iu=previous_iu,
+                         grounded_in=grounded_in)
+
+    def set_payload(self, payload):
+        """Set the dictionary payload
+
+        Args:
+            payload(dict)
+        """
+        self.payload = payload
 
 
 class DialogueActRecorderModule(retico_core.AbstractConsumingModule):
@@ -194,3 +223,4 @@ class DialogueActTriggerModule(retico_core.AbstractTriggerModule):
         output_iu.dispatch = self.dispatch
         output_iu.set_act(data.get("act", "greeting"), data.get("concepts", {}))
         self.append(retico_core.UpdateMessage.from_iu(output_iu, update_type))
+        

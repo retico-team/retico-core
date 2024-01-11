@@ -705,13 +705,13 @@ class AbstractModule:
         preceding module) so that the incremental queues do not overflow.
 
         Args:
-            update_message (UpdateMEssage): The update message that should be processed
+            update_message (UpdateMessage): The update message that should be processed
                 by the module.
 
         Returns:
             UpdateMessage: An update message that is produced by this module based
             on the incremental units that were given. May be None.
-        """
+        """ 
         raise NotImplementedError()
 
     def _run(self):

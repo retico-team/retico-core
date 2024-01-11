@@ -103,6 +103,7 @@ class AudioIU(retico_core.IncrementalUnit):
             float: Length of the audio in this IU in seconds.
         """
         return float(self.nframes) / float(self.rate)
+    
 
 
 class SpeechIU(AudioIU):
@@ -152,7 +153,7 @@ class DispatchedAudioIU(AudioIU):
 
 
 class MicrophoneModule(retico_core.AbstractProducingModule):
-    """A module that produces IUs containing audio signals that are captures by
+    """A module that produces IUs containing audio signals that are captured by
     a microphone."""
 
     @staticmethod
@@ -178,7 +179,7 @@ class MicrophoneModule(retico_core.AbstractProducingModule):
         self.audio_buffer.put(in_data)
         return (in_data, pyaudio.paContinue)
 
-    def __init__(self, frame_length=0.02, rate=44100, sample_width=2, **kwargs):
+    def __init__(self, frame_length=0.02, rate=16000, sample_width=2, **kwargs):
         """
         Initialize the Microphone Module.
 
