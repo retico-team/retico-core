@@ -202,7 +202,7 @@ class MicrophoneModule(retico_core.AbstractProducingModule):
         if not self.audio_buffer:
             return None
         try:
-            sample = self.audio_buffer.get(timeout=1.0)
+            sample = self.audio_buffer.get()
         except queue.Empty:
             return None
         output_iu = self.create_iu()

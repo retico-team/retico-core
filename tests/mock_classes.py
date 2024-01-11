@@ -13,7 +13,7 @@ class MockAudioBuffer:
     def put(self, in_data):
         self.buf.append(in_data)
         self.in_data = in_data
-    def get(self, timeout):
+    def get(self, timeout=True):
         if self.fail == True:
             raise queue.Empty
         else:
@@ -141,6 +141,13 @@ class MockAudioIU:
         return "formatted!"
     def set_dispatching(self, *kwargs):
         return True
+    
+class MockImageIU:
+    def __init__(self):
+        self.image = "test_image"
+        self.rate = 10
+        self.nframes = 5
+        self.payload = [45,45,232]
     
 class MockNetwork:
     def __init__(self):

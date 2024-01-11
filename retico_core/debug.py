@@ -95,6 +95,7 @@ class TextPrinterModule(abstract.AbstractConsumingModule):
         self._old_text = ""
 
     def process_update(self, update_message):
+        print("DEBUG")
         for iu, ut in update_message:
             if ut == abstract.UpdateType.ADD:
                 self.current_input.append(iu)
