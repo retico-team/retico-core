@@ -210,6 +210,23 @@ class IncrementalUnit:
         if not isinstance(other, IncrementalUnit):
             return False
         return self.iuid == other.iuid
+    
+    def to_zmq(self, update_type):
+        """
+        returns a formatted string that can be sent across zeromq
+        """
+        import datetime, json
+        payload = {}
+        payload["originatingTime"] = datetime.datetime.now().isoformat() #zmq expected format
+        payload["message"] = json.dumps(self.payload)
+        payload["update_type"] = str(update_type)
+        return payload
+    
+    def from_zmq(self, zmq_data):
+        """
+        reconstitues an IU from a formatted zeromq string
+        """
+        self.payload = zmq_data['payload']
 
     @staticmethod
     def type():
