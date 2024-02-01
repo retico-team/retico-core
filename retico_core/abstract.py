@@ -16,6 +16,7 @@ import threading
 import time
 import enum
 import copy
+import json
 
 
 class UpdateType(enum.Enum):
@@ -215,10 +216,10 @@ class IncrementalUnit:
         """
         returns a formatted string that can be sent across zeromq
         """
-        import datetime, json
+        import datetime
         payload = {}
         payload["originatingTime"] = datetime.datetime.now().isoformat() #zmq expected format
-        payload["message"] = json.dumps(self.payload)
+        payload["message"] = self.payload
         payload["update_type"] = str(update_type)
         return payload
     
@@ -226,7 +227,7 @@ class IncrementalUnit:
         """
         reconstitues an IU from a formatted zeromq string
         """
-        self.payload = zmq_data['payload']
+        self.payload = zmq_data['message']
 
     @staticmethod
     def type():
