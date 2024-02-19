@@ -251,6 +251,7 @@ class UpdateMessage:
         """
         self._msgs = []  # First element of tuple is IU, second is UpdateType
         self._counter = -1
+        self.found_invalid_iu = None
 
     def __len__(self):
         return len(self._msgs)
@@ -369,6 +370,7 @@ class UpdateMessage:
 
         for iu in self.incremental_units():
             if not isinstance(iu, tuple(iu_classes)):
+                self.found_invalid_iu = type(iu)
                 return False
         return True
 
@@ -478,6 +480,7 @@ class AbstractModule:
         self._right_buffers = []
         self._is_running = False
         self._previous_iu = None
+        self.found_invalid_ius = []
         self._left_buffers = []
         self.mutex = threading.Lock()
         self.events = {}
@@ -743,8 +746,16 @@ class AbstractModule:
                     except queue.Empty:
                         update_message = None
                     if update_message:
+                        '''
+                        If this module gets an invalid IU, print a warning the first time
+                        then ignore thereafter. 
+                        '''
                         if not update_message.has_valid_ius(self.input_ius()):
-                            raise TypeError("This module can't handle this type of IU")
+                            viu = update_message.found_invalid_iu
+                            if viu not in self.found_invalid_ius:
+                                print("Warning: the module {} can't handle type of IU {}. Will ignore this IU type.".format(self.name(), viu))
+                                self.found_invalid_ius.append(viu)
+                            continue
                         output_message = self.process_update(update_message)
                         update_message.set_processed(self)
                         for input_iu in update_message.incremental_units():
