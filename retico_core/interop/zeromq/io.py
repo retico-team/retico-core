@@ -1,9 +1,9 @@
 # retico
-from retico.core import abstract
-from retico.core.visual.common import DetectedObjectsIU
-from retico.core.visual.common import ObjectFeaturesIU
-from retico.core.dialogue.common import DialogueActIU
-from retico.core.visual.common import ImageIU
+from retico_core.core import abstract
+from retico_core.core.visual import DetectedObjectsIU
+from retico_core.core.visual import ObjectFeaturesIU
+from retico_core.core.dialogue import DialogueActIU
+from retico_core.core.visual import ImageIU
 
 # zeromq & supporting libraries
 import zmq, json

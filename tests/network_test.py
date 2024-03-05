@@ -1,6 +1,6 @@
 import unittest
-from retico_core import network
-from retico_core import UpdateType
+from retico_core.core import network
+from retico_core.core import UpdateType
 from mock_classes import MockNetwork, MockBuffer
 from mock import patch
 import io
@@ -43,7 +43,7 @@ class TestNetworkModule(unittest.TestCase):
         #Assert
         self.assertEqual(len(result), expected_result)
 
-    @patch('retico_core.network.load')
+    @patch('retico_core.core.network.load')
     @patch('builtins.input')
     def test_network_load_and_execute(self, mock_input, mock_load):
         #Arrange
@@ -71,7 +71,7 @@ class TestNetworkModule(unittest.TestCase):
         #Assert
         self.assertEqual(result, expected_result)
 
-    @patch('retico_core.network.discover')
+    @patch('retico_core.core.network.discover')
     def test_network_run(self,mock_discover):
         #Arrange
         mock_network = MockNetwork()
@@ -85,7 +85,7 @@ class TestNetworkModule(unittest.TestCase):
         self.assertEqual(mock_network.ran, expected_result)
         self.assertEqual(mock_network.set, expected_result)
 
-    @patch('retico_core.network.discover')
+    @patch('retico_core.core.network.discover')
     def test_network_stop(self,mock_discover):
         #Arrange
         mock_network = MockNetwork()
@@ -98,7 +98,7 @@ class TestNetworkModule(unittest.TestCase):
         #Assert
         self.assertEqual(mock_network.stopped, expected_result)
 
-    @patch('retico_core.network._discover_modules')
+    @patch('retico_core.core.network._discover_modules')
     def test_network_discover(self, mock_load):
         #Arrange
         mock_network = MockNetwork()
@@ -114,7 +114,7 @@ class TestNetworkModule(unittest.TestCase):
         self.assertEqual(result2, expected_result2)
 
     @patch('pickle.dump')
-    @patch('retico_core.network._discover_modules')
+    @patch('retico_core.core.network._discover_modules')
     def test_network_save(self, mock_load, mock_pickle):
         #Arrange
         mock_network = MockNetwork()

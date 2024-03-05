@@ -7,7 +7,7 @@ This may be a transcription that is generated from an ASR module, a text IU cont
 words to be synthesized by a TTS module or other general purpose text.
 """
 
-import retico_core
+import retico_core.core.abstract as retico_core
 
 
 def get_text_increment(module, new_text):

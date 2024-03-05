@@ -1,9 +1,9 @@
 """A module for Natural Language Understanding provided by rasa_nlu"""
 
 # retico
-from retico_core import abstract
-from retico_core.text import SpeechRecognitionIU
-from retico_core.dialogue import DialogueActIU
+from retico_core.core import abstract
+from retico_core.core.text import SpeechRecognitionIU
+from retico_core.core.dialogue import DialogueActIU
 
 # rasa
 import sys

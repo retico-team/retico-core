@@ -1,5 +1,5 @@
-from retico_core import abstract
-from retico_core.modules.sds_class.iu import SimpleTextIU
+from retico_core.core import abstract
+from sds_class_iu import SimpleTextIU
 import nltk
 
 

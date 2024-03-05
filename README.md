@@ -24,3 +24,26 @@ $ pip install retico-core
 ## Documentation
 
 The documentation of retico-core can be found at [https://retico-core.readthedocs.io/](https://retico-core.readthedocs.io/)
+
+## Import
+```
+import retico_core.core.abstract
+import retico_core.core.audio
+import retico_core.core.debug
+import retico_core.core.dialogue
+import retico_core.core.network
+import retico_core.core.text
+import retico_core.core.visual
+```
+
+## Pip Deployment
+### Single Module
+```
+cd <project directory>
+rm -rf dist
+python -m build --sdist
+twine upload dist/*
+```
+### Batch upload
+Linux/OSX/Powershell
+`./retico_deploy.sh`

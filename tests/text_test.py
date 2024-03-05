@@ -1,5 +1,5 @@
 import unittest
-from retico_core import text, UpdateType, dialogue
+from retico_core.core import text, UpdateType, dialogue
 from mock_classes import MockText, MockGrounded, MockNetwork, MockTextFile, MockTextGen, MockUpdateMessage
 from mock import patch
 import io
@@ -105,7 +105,7 @@ class TestTextModule(unittest.TestCase):
         #Assert
         self.assertEqual(result, expected_result)
 
-    @patch('retico_core.abstract.IncrementalUnit._remove_old_links')
+    @patch('retico_core.core.abstract.IncrementalUnit._remove_old_links')
     def test_speech_recognition_init(self, old_mock):
         #Arrange
         old_mock.return_value = True
@@ -272,7 +272,7 @@ class TestTextModule(unittest.TestCase):
         #Assert
         self.assertEqual(result.dispatch, mock_dispatch)
 
-    @patch('retico_core.UpdateMessage.from_iu')
+    @patch('retico_core.core.UpdateMessage.from_iu')
     def test_text_trigger_module_trigger(self, mock_from_iu):
         #Arrange
         iu_return = "new_iu"
@@ -334,7 +334,7 @@ class TestTextModule(unittest.TestCase):
         #Assert
         self.assertEqual(result.dispatch_final, mock_dispatch)
 
-    @patch('retico_core.UpdateMessage')
+    @patch('retico_core.core.UpdateMessage')
     def test_text_dispatcher_module_process_update(self, mock_update):
         #Arrange
         mock_update.return_value = MockUpdateMessage()
@@ -403,7 +403,7 @@ class TestTextModule(unittest.TestCase):
         #Assert
         self.assertEqual(result.threshold, mock_threshold)
 
-    @patch('retico_core.UpdateMessage')
+    @patch('retico_core.core.UpdateMessage')
     def test_incrementalize_asr_module_process_update(self, mock_update):
         #Arrange
         mock_update.return_value = MockUpdateMessage()
@@ -471,7 +471,7 @@ class TestTextModule(unittest.TestCase):
         except Exception as e:
             self.assertEqual("Failed", e)
 
-    @patch('retico_core.UpdateMessage')
+    @patch('retico_core.core.UpdateMessage')
     def test_end_of_utterance_module_process_update(self, mock_update):
         #Arrange
         mock_update.return_value = MockUpdateMessage()

@@ -1,6 +1,6 @@
 import unittest
-from retico_core import visual
-from retico_core import UpdateType
+from retico_core.core import visual
+from retico_core.core import UpdateType
 from mock_classes import MockImageIU
 from mock import patch
 from PIL import Image

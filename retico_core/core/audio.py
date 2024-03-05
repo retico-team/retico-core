@@ -14,7 +14,8 @@ import platform
 
 import pyaudio
 
-import retico_core
+import retico_core.core.abstract as retico
+
 
 CHANNELS = 1
 """Number of channels. For now, this is hard coded MONO. If there is interest to do
@@ -43,7 +44,7 @@ def show_audio_devices():
             print("  %s (%d)" % (device["name"], device["index"]))
 
 
-class AudioIU(retico_core.IncrementalUnit):
+class AudioIU(retico.IncrementalUnit):
     """An audio incremental unit that receives raw audio data from a source.
 
     The audio contained should be monaural.
@@ -151,7 +152,7 @@ class DispatchedAudioIU(AudioIU):
         self.is_dispatching = is_dispatching
 
 
-class MicrophoneModule(retico_core.AbstractProducingModule):
+class MicrophoneModule(retico.AbstractProducingModule):
     """A module that produces IUs containing audio signals that are captures by
     a microphone."""
 
@@ -207,7 +208,7 @@ class MicrophoneModule(retico_core.AbstractProducingModule):
             return None
         output_iu = self.create_iu()
         output_iu.set_audio(sample, self.chunk_size, self.rate, self.sample_width)
-        return retico_core.UpdateMessage.from_iu(output_iu, retico_core.UpdateType.ADD)
+        return retico.UpdateMessage.from_iu(output_iu, retico.UpdateType.ADD)
 
     def setup(self):
         """Set up the microphone for recording."""
@@ -235,7 +236,7 @@ class MicrophoneModule(retico_core.AbstractProducingModule):
         self.audio_buffer = queue.Queue()
 
 
-class SpeakerModule(retico_core.AbstractConsumingModule):
+class SpeakerModule(retico.AbstractConsumingModule):
     """A module that consumes AudioIUs of arbitrary size and outputs them to the
     speakers of the machine. When a new IU is incoming, the module blocks as
     long as the current IU is being played."""
@@ -280,7 +281,7 @@ class SpeakerModule(retico_core.AbstractConsumingModule):
 
     def process_update(self, update_message):
         for iu, ut in update_message:
-            if ut == retico_core.UpdateType.ADD:
+            if ut == retico.UpdateType.ADD:
                 self.stream.write(bytes(iu.raw_audio))
         return None
 
@@ -315,7 +316,7 @@ class SpeakerModule(retico_core.AbstractConsumingModule):
         self.stream = None
 
 
-class StreamingSpeakerModule(retico_core.AbstractConsumingModule):
+class StreamingSpeakerModule(retico.AbstractConsumingModule):
     """A module that consumes Audio IUs and outputs them to the speaker of the
     machine. The audio output is streamed and thus the Audio IUs have to have
     exactly [chunk_size] samples."""
@@ -367,7 +368,7 @@ class StreamingSpeakerModule(retico_core.AbstractConsumingModule):
 
     def process_update(self, update_message):
         for iu, ut in update_message:
-            if ut == retico_core.UpdateType.ADD:
+            if ut == retico.UpdateType.ADD:
                 self.audio_buffer.put(iu.raw_audio)
         return None
 
@@ -395,7 +396,7 @@ class StreamingSpeakerModule(retico_core.AbstractConsumingModule):
         self.audio_buffer = queue.Queue()
 
 
-class AudioDispatcherModule(retico_core.AbstractModule):
+class AudioDispatcherModule(retico.AbstractModule):
     """An Audio module that takes a raw audio stream of arbitrary size and
     outputs AudioIUs with a specific chunk size at the rate it would be produced
     if the audio was being played.
@@ -517,7 +518,7 @@ class AudioDispatcherModule(retico_core.AbstractModule):
         # incoming IU is set to not dispatch, we stop dispatching and clean the
         # buffer
         for iu, ut in update_message:
-            if ut != retico_core.UpdateType.ADD:
+            if ut != retico.UpdateType.ADD:
                 continue
             if self.interrupt or not iu.dispatch:
                 self.set_dispatching(False)
@@ -552,8 +553,8 @@ class AudioDispatcherModule(retico_core.AbstractModule):
                 if self._is_dispatching:
                     if self.audio_buffer:
                         self.append(
-                            retico_core.UpdateMessage.from_iu(
-                                self.audio_buffer.pop(0), retico_core.UpdateType.ADD
+                            retico.UpdateMessage.from_iu(
+                                self.audio_buffer.pop(0), retico.UpdateType.ADD
                             )
                         )
                     else:
@@ -569,8 +570,8 @@ class AudioDispatcherModule(retico_core.AbstractModule):
                         )
                         current_iu.set_dispatching(0.0, False)
                         self.append(
-                            retico_core.UpdateMessage.from_iu(
-                                current_iu, retico_core.UpdateType.ADD
+                            retico.UpdateMessage.from_iu(
+                                current_iu, retico.UpdateType.ADD
                             )
                         )
             time.sleep((self.target_chunk_size / self.rate) / self.speed)
@@ -585,7 +586,7 @@ class AudioDispatcherModule(retico_core.AbstractModule):
         self.audio_buffer = []
 
 
-class AudioRecorderModule(retico_core.AbstractConsumingModule):
+class AudioRecorderModule(retico.AbstractConsumingModule):
     """A Module that consumes AudioIUs and saves them as a PCM wave file to
     disk."""
 
@@ -619,7 +620,7 @@ class AudioRecorderModule(retico_core.AbstractConsumingModule):
 
     def process_update(self, update_message):
         for iu, ut in update_message:
-            if ut == retico_core.UpdateType.ADD:
+            if ut == retico.UpdateType.ADD:
                 self.wavfile.writeframes(iu.raw_audio)
 
     def setup(self):

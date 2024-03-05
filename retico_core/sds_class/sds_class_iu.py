@@ -1,5 +1,5 @@
 
-from retico_core import abstract
+from retico_core.core import abstract
 
 
 class SimpleTextIU(abstract.IncrementalUnit):

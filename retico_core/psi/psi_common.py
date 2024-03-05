@@ -1,5 +1,5 @@
-from retico_core import abstract
-from retico_core.text import SpeechRecognitionIU
+from retico_core.core import abstract
+from retico_core.core.text import SpeechRecognitionIU
 from retico_core.interop.zeromq.io import ZeroMQIU
 
 

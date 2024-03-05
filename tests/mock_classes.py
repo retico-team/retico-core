@@ -1,4 +1,4 @@
-from retico_core import abstract, text
+from retico_core.core import abstract, text
 import queue
 
 class MockGrounded:

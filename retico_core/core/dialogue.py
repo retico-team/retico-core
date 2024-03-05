@@ -6,7 +6,7 @@ This module contains basic dialogue functionality, like a :class:`.DialogueActIU
 a dialogue manager.
 """
 
-import retico_core
+import retico_core.core.abstract as retico_core
 import time
 
 

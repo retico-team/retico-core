@@ -2,7 +2,7 @@
 This module redefines the abstract classes to fit the needs of visual processing.
 """
 
-from retico_core import abstract
+from retico_core.core import abstract
 import numpy as np
 from PIL import Image
 

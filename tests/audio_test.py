@@ -1,6 +1,6 @@
 import unittest
-from retico_core import audio
-from retico_core import UpdateType
+from retico_core.core import audio
+from retico_core.core import UpdateType
 from mock_classes import MockAudioBuffer, MockAudioIU, MockGrounded, MockMutex, MockStream, MockWav
 from mock import patch
 import pyaudio
@@ -20,8 +20,8 @@ def test_X(self):
 # Test cases
 class TestAudioModule(unittest.TestCase):
 
-    @patch('retico_core.audio.pyaudio.PyAudio.get_host_api_info_by_index')
-    @patch('retico_core.audio.pyaudio.PyAudio.get_device_info_by_host_api_device_index')
+    @patch('retico_core.core.audio.pyaudio.PyAudio.get_host_api_info_by_index')
+    @patch('retico_core.core.audio.pyaudio.PyAudio.get_device_info_by_host_api_device_index')
     def test_show_audio_devices(self, mock_device, mock_host):
         #Arrange
         mock_host.return_value = {"deviceCount": 2}
@@ -44,7 +44,7 @@ class TestAudioModule(unittest.TestCase):
         #Assert
         self.assertEqual(result, expected_result)
 
-    @patch('retico_core.abstract.IncrementalUnit._remove_old_links')
+    @patch('retico_core.core.abstract.IncrementalUnit._remove_old_links')
     def test_audio_iu_init(self, old_mock):
         #Arrange
         old_mock.return_value = True
@@ -257,7 +257,7 @@ class TestAudioModule(unittest.TestCase):
         #Assert
         self.assertEqual(result, expected_result)
 
-    @patch('retico_core.UpdateMessage.from_iu')
+    @patch('retico_core.core.UpdateMessage.from_iu')
     def test_microphone_module_process_update_pass(self, mock_update):
         #Arrange
         mock_update.return_value = True
@@ -355,7 +355,7 @@ class TestAudioModule(unittest.TestCase):
         #Assert
         self.assertEqual(result, expected_result)
 
-    @patch('retico_core.audio.pyaudio.PyAudio.get_default_output_device_info')
+    @patch('retico_core.core.audio.pyaudio.PyAudio.get_default_output_device_info')
     def test_speaker_module_init(self, mock_default):
         #Arrange
         mock_default.return_value = {"index": "mock_index"}
@@ -399,7 +399,7 @@ class TestAudioModule(unittest.TestCase):
         #Assert
         self.assertEqual(mock_audio_IU.stream.raw, expected_result)
 
-    @patch('retico_core.audio.platform.system')
+    @patch('retico_core.core.audio.platform.system')
     def test_speaker_module_setup(self, mock_system):
         #Arrange
         mock_system.return_value = "None"
@@ -784,7 +784,7 @@ class TestAudioModule(unittest.TestCase):
         #Assert
         self.assertEqual(mock_audio_IU.wavfile.write_state, expected_result)
 
-    @patch('retico_core.audio.wave.open')
+    @patch('retico_core.core.audio.wave.open')
     def test_audio_recorder_module_setup(self, mock_wave):
         #Arrange
         mock_wave.return_value = MockWav()

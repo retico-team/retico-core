@@ -1,6 +1,6 @@
 import unittest
-from retico_core import dialogue
-from retico_core import UpdateType
+from retico_core.core import dialogue
+from retico_core.core import UpdateType
 from mock_classes import MockGrounded, MockDialog, MockTextFile
 from mock import patch
 import io
@@ -32,7 +32,7 @@ class TestDialogueModule(unittest.TestCase):
         #Assert
         self.assertEqual(result, expected_result)
 
-    @patch('retico_core.abstract.IncrementalUnit._remove_old_links')
+    @patch('retico_core.core.abstract.IncrementalUnit._remove_old_links')
     def test_dialogue_act_iu_init(self, old_mock):
         #Arrange
         old_mock.return_value = True
@@ -247,7 +247,7 @@ class TestDialogueModule(unittest.TestCase):
         #Assert
         self.assertEqual(result.dispatch, expected_result)
 
-    @patch('retico_core.UpdateMessage.from_iu')
+    @patch('retico_core.core.UpdateMessage.from_iu')
     def test_dialogue_act_trigger_module_output_trigger(self, mock_iu):
         #Arrange
         mock_iu.return_value = 5

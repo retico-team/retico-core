@@ -7,7 +7,7 @@ incremental unit.
 """
 
 
-from retico_core import abstract, text
+from retico_core.core import abstract, text
 
 
 class DebugModule(abstract.AbstractConsumingModule):

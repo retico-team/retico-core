@@ -2,10 +2,10 @@ import os
 import numpy as np
 import threading
 from os import path
-from retico_core import abstract
-from retico_core.text import SpeechRecognitionIU
-from retico_core.audio import AudioIU
-from retico_core.debug import DebugModule
+from retico_core.core import abstract
+from retico_core.core.text import SpeechRecognitionIU
+from retico_core.core.audio import AudioIU
+from retico_core.core.debug import DebugModule
 
 # word filtering
 from nltk.corpus import wordnet as wn

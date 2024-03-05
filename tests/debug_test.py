@@ -1,6 +1,6 @@
 import unittest
-from retico_core import abstract, text, debug
-from retico_core import UpdateType
+from retico_core.core import abstract, text, debug
+from retico_core.core import UpdateType
 from mock_classes import MockDebug
 from mock import patch
 import io

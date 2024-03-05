@@ -1,5 +1,5 @@
 import unittest
-from retico_core import abstract
+from retico_core.core import abstract
 from mock_classes import MockAbstract
 from mock_classes import MockGrounded
 from mock_classes import MockIncrementalUnit
@@ -32,7 +32,7 @@ class TestAbstractModule(unittest.TestCase):
         self.assertEqual(iq.provider, mock_provider)
         self.assertEqual(iq.consumer, mock_consumer)
     
-    @patch('retico_core.abstract.IncrementalUnit._remove_old_links')
+    @patch('retico_core.core.abstract.IncrementalUnit._remove_old_links')
     def test_iu_init(self, old_mock):
         #Arrange
         old_mock.return_value = True
@@ -80,8 +80,8 @@ class TestAbstractModule(unittest.TestCase):
         #Assert
         self.assertEqual(result, mock_time.return_value - mock_IU.created_at)
     
-    @patch('retico_core.abstract.IncrementalUnit._remove_old_links')
-    @patch('retico_core.abstract.IncrementalUnit.age')
+    @patch('retico_core.core.abstract.IncrementalUnit._remove_old_links')
+    @patch('retico_core.core.abstract.IncrementalUnit.age')
     def test_iu_older_than(self, mock_age, mock_old):
         #Arrange
         mock_age.return_value = 4
@@ -190,7 +190,7 @@ class TestAbstractModule(unittest.TestCase):
         #Assert
         self.assertEqual(result, len(mock_update._msgs))
 
-    @patch('retico_core.abstract.UpdateMessage.add_iu')
+    @patch('retico_core.core.abstract.UpdateMessage.add_iu')
     def test_update_from_iu(self, mock_add):
         #Arrange
         mock_IU = MockIncrementalUnit()
@@ -205,7 +205,7 @@ class TestAbstractModule(unittest.TestCase):
         self.assertEqual(result._msgs, expected_msgs)
         self.assertEqual(result._counter, expected_counter)
 
-    @patch('retico_core.abstract.UpdateMessage.add_ius')
+    @patch('retico_core.core.abstract.UpdateMessage.add_ius')
     def test_update_from_iu_list(self, mock_add):
         #Arrange
         mock_IU = MockIncrementalUnit()

@@ -1,11 +1,11 @@
 """A module for grounded semantics"""
 
 # retico
-from retico_core import abstract
-from retico_core.visual import ObjectFeaturesIU
-from retico_core.text import SpeechRecognitionIU
-from retico_core.modules.slim.wac import WAC
-from retico_core.modules.slim.common import GroundedFrameIU
+from retico_core.core import abstract
+from retico_core.core.visual import ObjectFeaturesIU
+from retico_core.core.text import SpeechRecognitionIU
+from retico_core.slim.wac import WAC
+from retico_core.slim.common import GroundedFrameIU
 
 from collections import deque
 import numpy as np

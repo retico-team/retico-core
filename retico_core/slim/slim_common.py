@@ -1,4 +1,4 @@
-from retico_core import abstract
+from retico_core.core import abstract
 
 class GroundedFrameIU(abstract.IncrementalUnit):
     """An image incremental unit that receives raw image data from a source.
