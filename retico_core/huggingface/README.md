@@ -33,6 +33,8 @@ Documentation for the main retico project can be found here
 from retico_core.core.audio import MicrophoneModule
 from retico_core.core.debug import DebugModule
 from asr import OfflineASRModule
+import nltk
+nltk.download('all')
 
 
 debug = DebugModule()

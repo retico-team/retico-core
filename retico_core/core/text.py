@@ -6,7 +6,7 @@ This file defines general incremental units and incremental modules that deal wi
 This may be a transcription that is generated from an ASR module, a text IU containing
 words to be synthesized by a TTS module or other general purpose text.
 """
-
+import retico_core.core.dialogue as dialoge
 import retico_core.core.abstract as retico_core
 
 
@@ -353,7 +353,7 @@ class EndOfUtteranceModule(retico_core.AbstractModule):
 
     @staticmethod
     def output_iu():
-        return retico_core.dialogue.EndOfTurnIU
+        return dialoge.EndOfTurnIU
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

@@ -334,7 +334,7 @@ class TestTextModule(unittest.TestCase):
         #Assert
         self.assertEqual(result.dispatch_final, mock_dispatch)
 
-    @patch('retico_core.core.UpdateMessage')
+    @patch('retico_core.core.abstract.UpdateMessage')
     def test_text_dispatcher_module_process_update(self, mock_update):
         #Arrange
         mock_update.return_value = MockUpdateMessage()
@@ -403,7 +403,7 @@ class TestTextModule(unittest.TestCase):
         #Assert
         self.assertEqual(result.threshold, mock_threshold)
 
-    @patch('retico_core.core.UpdateMessage')
+    @patch('retico_core.core.abstract.UpdateMessage')
     def test_incrementalize_asr_module_process_update(self, mock_update):
         #Arrange
         mock_update.return_value = MockUpdateMessage()
@@ -471,7 +471,7 @@ class TestTextModule(unittest.TestCase):
         except Exception as e:
             self.assertEqual("Failed", e)
 
-    @patch('retico_core.core.UpdateMessage')
+    @patch('retico_core.core.abstract.UpdateMessage')
     def test_end_of_utterance_module_process_update(self, mock_update):
         #Arrange
         mock_update.return_value = MockUpdateMessage()
