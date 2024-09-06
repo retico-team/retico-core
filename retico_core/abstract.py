@@ -11,6 +11,7 @@ The Incremental Unit provides the basic data structure to exchange information
 between modules.
 """
 
+import datetime
 import logging
 from pathlib import Path
 import queue
@@ -126,7 +127,7 @@ class IncrementalUnit:
         if grounded_in:
             self.meta_data = {**grounded_in.meta_data}
 
-        self.created_at = time.time()
+        self.created_at =  datetime.datetime.now()
         self._remove_old_links()
 
     def _remove_old_links(self):
@@ -151,7 +152,7 @@ class IncrementalUnit:
         Returns:
             float: The age of the IU in seconds
         """
-        return time.time() - self.created_at
+        return  datetime.datetime.now() - self.created_at
 
     def older_than(self, s):
         """Return whether the IU is older than s seconds.
