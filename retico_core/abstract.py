@@ -11,12 +11,15 @@ The Incremental Unit provides the basic data structure to exchange information
 between modules.
 """
 
+import logging
+from pathlib import Path
 import queue
 import threading
 import time
 import enum
 import copy
 import json
+import structlog
 
 
 class UpdateType(enum.Enum):
@@ -497,6 +500,76 @@ class AbstractModule:
             self.queue_class = queue_class
 
         self.iu_counter = 0
+        
+        # set up logger
+        self.logfolder = "test_log.log"
+        self.configurate_logger(self.name, self.logfolder)
+        
+    def configurate_logger(self, filename, foldername):
+        """
+        Configure structlog's logger and set general logging args (timestamps,
+        log level, etc.)
+
+        Args:
+            filename: (str): name of file to write to.
+
+            foldername: (str): name of folder to write to.
+        """
+        
+        logging.basicConfig(
+            level=logging.DEBUG,
+            format="%(message)s",
+        )
+        
+        def drop_superior_messages(_, __, event_dict):
+            if event_dict.get("module"):
+                if event_dict.get("module") != "Whipser ASR Interruption Module":
+                    raise structlog.DropEvent
+            return event_dict
+        
+        structlog.configure(
+            processors=[
+                structlog.processors.TimeStamper(fmt="iso"),
+                structlog.processors.add_log_level,
+                drop_superior_messages,
+                structlog.dev.ConsoleRenderer(
+                    colors=True
+                ),  # Format lisible et coloré pour le terminal
+            ],
+            logger_factory=structlog.stdlib.LoggerFactory(),
+            wrapper_class=structlog.stdlib.BoundLogger,
+            cache_logger_on_first_use=True,
+        )
+
+        # Logger pour le terminal
+        self.terminal_logger = structlog.get_logger("terminal")
+        self.terminal_logger = self.terminal_logger.bind(module=self.name())
+
+        # Configuration du logger pour le fichier
+        file_handler = logging.FileHandler(self.logfolder, mode="a", encoding="UTF-8")
+        file_handler.setLevel(logging.DEBUG)
+
+        # Créer un logger standard sans handlers pour éviter la duplication des logs dans le terminal
+        file_only_logger = logging.getLogger("file_logger")
+        file_only_logger.addHandler(file_handler)
+        file_only_logger.propagate = (
+            False  # Empêche la propagation des logs vers les loggers parents
+        )
+
+        # Encapsuler ce logger avec structlog
+        self.file_logger = structlog.wrap_logger(
+            file_only_logger,
+            processors=[
+                structlog.processors.TimeStamper(fmt="iso"),
+                structlog.processors.add_log_level,
+                structlog.processors.dict_tracebacks,
+                structlog.processors.JSONRenderer(),  # Format JSON pour le fichier
+            ],
+        )
+        self.file_logger = self.file_logger.bind(module=self.name())
+        # # Utilisation des loggers
+        # self.terminal_logger.info("This is a terminal log.", module="user_login", user="john_doe")
+        # self.file_logger.info("This is a file log.", module="user_login", user="john_doe")
 
     def revoke(self, iu, remove_revoked=True):
         """Revokes an IU form the list of the current_input or current_output, depending
@@ -849,7 +922,7 @@ class AbstractModule:
                     buffer.get()
         self.event_call(self.EVENT_STOP)
 
-    def create_iu(self, grounded_in=None):
+    def create_iu(self, grounded_in=None, **kwargs):
         """Creates a new Incremental Unit that contains the information of the
         creator (the current module), the previous IU that was created in this
         module and the iu that it is based on.
@@ -872,9 +945,16 @@ class AbstractModule:
             iuid=f"{hash(self)}:{self.iu_counter}",
             previous_iu=self._previous_iu,
             grounded_in=grounded_in,
+            **kwargs
         )
         self.iu_counter += 1
         self._previous_iu = new_iu
+        
+        try:
+            self.terminal_logger.info("create_iu", **new_iu.__dict__)
+            self.file_logger.info("create_iu", **new_iu.__dict__)
+        except Exception:
+            self.terminal_logger.exception("error")
         return new_iu
 
     def latest_iu(self):
