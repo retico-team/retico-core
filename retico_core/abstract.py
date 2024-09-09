@@ -127,7 +127,7 @@ class IncrementalUnit:
         if grounded_in:
             self.meta_data = {**grounded_in.meta_data}
 
-        self.created_at =  datetime.datetime.now()
+        self.created_at =  datetime.datetime.now().isoformat()
         self._remove_old_links()
 
     def _remove_old_links(self):
@@ -152,7 +152,7 @@ class IncrementalUnit:
         Returns:
             float: The age of the IU in seconds
         """
-        return  datetime.datetime.now() - self.created_at
+        return  datetime.datetime.now() - datetime.datetime.fromisoformat(self.created_at)
 
     def older_than(self, s):
         """Return whether the IU is older than s seconds.
@@ -469,7 +469,7 @@ class AbstractModule:
                 d[k] = v
         return d
 
-    def __init__(self, queue_class=IncrementalQueue, meta_data={}, **kwargs):
+    def __init__(self, queue_class=IncrementalQueue, meta_data={}, log_folder="logs/run", **kwargs):
         """Initialize the module with a default IncrementalQueue.
 
         Args:
@@ -503,10 +503,16 @@ class AbstractModule:
         self.iu_counter = 0
         
         # set up logger
-        self.logfolder = "test_log.log"
-        self.configurate_logger(self.name, self.logfolder)
+        # log_filename = self.name().replace(" ",  "_")
+        # self.log_path = log_folder + "/" + log_filename
+        # self.log_path = manage_log_folder(log_folder, log_filename)
+        # self.log_path = log_folder
+        # self.configurate_logger(self.log_path)
+        self.log_path = None
+        self.file_logger = None
+        self.terminal_logger = None
         
-    def configurate_logger(self, filename, foldername):
+    def configurate_logger(self, log_path):
         """
         Configure structlog's logger and set general logging args (timestamps,
         log level, etc.)
@@ -522,17 +528,17 @@ class AbstractModule:
             format="%(message)s",
         )
         
-        def drop_superior_messages(_, __, event_dict):
-            if event_dict.get("module"):
-                if event_dict.get("module") != "Whipser ASR Interruption Module":
-                    raise structlog.DropEvent
-            return event_dict
+        # def filter_module(_, __, event_dict):
+        #     if event_dict.get("module"):
+        #         if event_dict.get("module") != "Whipser ASR Interruption Module":
+        #             raise structlog.DropEvent
+        #     return event_dict
         
         structlog.configure(
             processors=[
                 structlog.processors.TimeStamper(fmt="iso"),
                 structlog.processors.add_log_level,
-                drop_superior_messages,
+                # filter_module,
                 structlog.dev.ConsoleRenderer(
                     colors=True
                 ),  # Format lisible et coloré pour le terminal
@@ -547,7 +553,7 @@ class AbstractModule:
         self.terminal_logger = self.terminal_logger.bind(module=self.name())
 
         # Configuration du logger pour le fichier
-        file_handler = logging.FileHandler(self.logfolder, mode="a", encoding="UTF-8")
+        file_handler = logging.FileHandler(log_path, mode="a", encoding="UTF-8")
         file_handler.setLevel(logging.DEBUG)
 
         # Créer un logger standard sans handlers pour éviter la duplication des logs dans le terminal
@@ -869,7 +875,7 @@ class AbstractModule:
                 return True
         return False
 
-    def setup(self):
+    def setup(self, log_folder):
         """This method is called before the module is run. This method can be
         used to set up the pipeline needed for processing the IUs.
 
@@ -877,7 +883,8 @@ class AbstractModule:
         immediately be run. For code that should be executed immediately before
         a module is run use the `prepare_run` method.
         """
-        pass
+        self.log_path = log_folder
+        self.configurate_logger(self.log_path)
 
     def prepare_run(self):
         """A method that is executed just before the module is being run.

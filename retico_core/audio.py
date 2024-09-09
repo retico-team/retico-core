@@ -215,8 +215,9 @@ class MicrophoneModule(retico_core.AbstractProducingModule):
         )
         return retico_core.UpdateMessage.from_iu(output_iu, retico_core.UpdateType.ADD)
 
-    def setup(self):
+    def setup(self, log_folder):
         """Set up the microphone for recording."""
+        super().setup(log_folder)
         p = self._p
         self.stream = p.open(
             format=p.get_format_from_width(self.sample_width),

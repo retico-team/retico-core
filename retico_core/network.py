@@ -8,6 +8,7 @@ starting and stopping them based on only a single module.
 """
 
 import pickle
+import retico_core
 
 
 def load(filename: str):
@@ -38,7 +39,7 @@ def load(filename: str):
     return (module_list, connection_list)
 
 
-def load_and_execute(filename):
+def load_and_execute(filename, log_folder="logs/run"):
     """Loads a network from file and runs it.
 
     The network is loaded via the load-Method. Before running the network, it is
@@ -51,8 +52,10 @@ def load_and_execute(filename):
     """
     module_list, _ = load(filename)
 
+    log_folder = retico_core.utils.create_new_log_folder(log_folder)
+
     for module in module_list:
-        module.setup()
+        module.setup(log_folder=log_folder)
 
     for module in module_list:
         module.run(run_setup=False)
@@ -76,7 +79,7 @@ def _discover_modules(module):
     return set(discovered_lb), set(discovered_rbs)
 
 
-def run(module):
+def run(module, log_folder="logs/run"):
     """Properly prepares and runs a network based on one module or a list of modules.
 
     The network is automatically discovered so that only one module of the network has
@@ -90,8 +93,10 @@ def run(module):
     """
     m_list, _ = discover(module)
 
+    log_folder = retico_core.utils.create_new_log_folder(log_folder)
+
     for m in m_list:
-        m.setup()
+        m.setup(log_folder=log_folder)
 
     for m in m_list:
         m.run(run_setup=False)
