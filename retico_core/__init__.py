@@ -5,6 +5,6 @@ from retico_core import network
 from retico_core import text
 from retico_core import dialogue
 from retico_core import robot
-from retico_core import utils
+from retico_core import log_utils
 
 from retico_core.version import __version__

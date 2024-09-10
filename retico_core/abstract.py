@@ -526,6 +526,7 @@ class AbstractModule:
         logging.basicConfig(
             level=logging.DEBUG,
             format="%(message)s",
+            force=True # <-- HERE BECAUSE IMPORTING SOME LIBS LIKE COQUITTS WAS BLOCKING THE LOGGINGS SYSTEM
         )
         
         # def filter_module(_, __, event_dict):
@@ -534,11 +535,18 @@ class AbstractModule:
         #             raise structlog.DropEvent
         #     return event_dict
         
+        def filter_event(_, __, event_dict):
+            if event_dict.get("event"):
+                if event_dict.get("event") == "create_iu":
+                    raise structlog.DropEvent
+            return event_dict
+        
         structlog.configure(
             processors=[
                 structlog.processors.TimeStamper(fmt="iso"),
                 structlog.processors.add_log_level,
                 # filter_module,
+                filter_event,
                 structlog.dev.ConsoleRenderer(
                     colors=True
                 ),  # Format lisible et coloré pour le terminal
@@ -716,6 +724,9 @@ class AbstractModule:
             )
         for q in self._right_buffers:
             q.put(copy.copy(update_message))
+            
+        self.file_logger.info("append UM")
+        self.terminal_logger.info("append UM")
 
     def subscribe(self, module, q=None):
         """Subscribe a module to the queue.
@@ -833,7 +844,8 @@ class AbstractModule:
                         if not update_message.has_valid_ius(self.input_ius()):
                             viu = update_message.found_invalid_iu
                             if viu not in self.found_invalid_ius:
-                                print("Warning: the module {} can't handle type of IU {}. Will ignore this IU type.".format(self.name(), viu))
+                                self.file_logger.warning("Warning: the module {} can't handle type of IU {}. Will ignore this IU type.".format(self.name(), viu), iu_type=viu)
+                                self.terminal_logger.warning("Warning: the module {} can't handle type of IU {}. Will ignore this IU type.".format(self.name(), viu), iu_type=viu)
                                 self.found_invalid_ius.append(viu)
                             continue
                         output_message = self.process_update(update_message)
@@ -885,6 +897,8 @@ class AbstractModule:
         """
         self.log_path = log_folder
         self.configurate_logger(self.log_path)
+        self.terminal_logger.info("setup")
+        self.file_logger.info("setup")
 
     def prepare_run(self):
         """A method that is executed just before the module is being run.
@@ -895,14 +909,16 @@ class AbstractModule:
         this method makes sure that other modules in the network are also
         already setup.
         """
-        pass
+        self.terminal_logger.info("prepare_run")
+        self.file_logger.info("prepare_run")
 
     def shutdown(self):
         """This method is called before the module is stopped. This method can
         be used to tear down the pipeline needed for processing the IUs."""
-        pass
+        self.terminal_logger.info("shutdown")
+        self.file_logger.info("shutdown")
 
-    def run(self, run_setup=True):
+    def run(self, run_setup=True, log_folder=None):
         """Run the processing pipeline of this module in a new thread. The
         thread can be stopped by calling the stop() method.
 
@@ -911,7 +927,7 @@ class AbstractModule:
             before the thread is started.
         """
         if run_setup:
-            self.setup()
+            self.setup(log_folder=log_folder)
         for q in self.right_buffers():
             with q.mutex:
                 q.queue.clear()
@@ -959,8 +975,10 @@ class AbstractModule:
         self._previous_iu = new_iu
         
         try:
-            self.terminal_logger.info("create_iu", **new_iu.__dict__)
-            self.file_logger.info("create_iu", **new_iu.__dict__)
+            # self.terminal_logger.info("create_iu", **new_iu.__dict__)
+            # self.file_logger.info("create_iu", **new_iu.__dict__)
+            self.terminal_logger.info("create_iu", iuid=new_iu.iuid, previous_iu=new_iu.previous_iu, grounded_in=new_iu.grounded_in)
+            self.file_logger.info("create_iu", iuid=new_iu.iuid, previous_iu=new_iu.previous_iu, grounded_in=new_iu.grounded_in)
         except Exception:
             self.terminal_logger.exception("error")
         return new_iu

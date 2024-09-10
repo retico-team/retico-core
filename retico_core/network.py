@@ -52,7 +52,7 @@ def load_and_execute(filename, log_folder="logs/run"):
     """
     module_list, _ = load(filename)
 
-    log_folder = retico_core.utils.create_new_log_folder(log_folder)
+    log_folder = retico_core.log_utils.create_new_log_folder(log_folder)
 
     for module in module_list:
         module.setup(log_folder=log_folder)
@@ -93,7 +93,7 @@ def run(module, log_folder="logs/run"):
     """
     m_list, _ = discover(module)
 
-    log_folder = retico_core.utils.create_new_log_folder(log_folder)
+    log_folder = retico_core.log_utils.create_new_log_folder(log_folder)
 
     for m in m_list:
         m.setup(log_folder=log_folder)
