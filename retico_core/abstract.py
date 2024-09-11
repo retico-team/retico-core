@@ -524,20 +524,32 @@ class AbstractModule:
         """
         
         logging.basicConfig(
-            level=logging.DEBUG,
+            level=logging.INFO,
             format="%(message)s",
             force=True # <-- HERE BECAUSE IMPORTING SOME LIBS LIKE COQUITTS WAS BLOCKING THE LOGGINGS SYSTEM
         )
         
-        # def filter_module(_, __, event_dict):
-        #     if event_dict.get("module"):
-        #         if event_dict.get("module") != "Whipser ASR Interruption Module":
-        #             raise structlog.DropEvent
-        #     return event_dict
+        def filter_modules(_, __, event_dict):
+            # print("event_dict ", event_dict)
+            if not event_dict.get("module"):
+                raise structlog.DropEvent
+            return event_dict
+        
+        def filter_module(_, __, event_dict):
+            if event_dict.get("module"):
+                if event_dict.get("module") == "Microphone Module":
+                    raise structlog.DropEvent
+            return event_dict
         
         def filter_event(_, __, event_dict):
             if event_dict.get("event"):
-                if event_dict.get("event") == "create_iu":
+                if event_dict.get("event") != "append UM":
+                    raise structlog.DropEvent
+            return event_dict
+
+        def filter_log_level(_, __, event_dict):
+            if event_dict.get("level"):
+                if event_dict.get("level") == "debug":
                     raise structlog.DropEvent
             return event_dict
         
@@ -545,8 +557,10 @@ class AbstractModule:
             processors=[
                 structlog.processors.TimeStamper(fmt="iso"),
                 structlog.processors.add_log_level,
-                # filter_module,
+                filter_modules,
+                filter_module,
                 filter_event,
+                # filter_log_level,
                 structlog.dev.ConsoleRenderer(
                     colors=True
                 ),  # Format lisible et coloré pour le terminal
@@ -562,7 +576,7 @@ class AbstractModule:
 
         # Configuration du logger pour le fichier
         file_handler = logging.FileHandler(log_path, mode="a", encoding="UTF-8")
-        file_handler.setLevel(logging.DEBUG)
+        file_handler.setLevel(logging.INFO)
 
         # Créer un logger standard sans handlers pour éviter la duplication des logs dans le terminal
         file_only_logger = logging.getLogger("file_logger")
@@ -725,9 +739,25 @@ class AbstractModule:
         for q in self._right_buffers:
             q.put(copy.copy(update_message))
             
-        self.file_logger.info("append UM")
-        self.terminal_logger.info("append UM")
-
+        # self.terminal_logger.info("append UM")
+        if len(update_message) != 0:
+            ius = update_message._msgs
+            first_iu = ius[0][0]
+            last_iu = ius[-1][0]
+            args = {"first_iuid":first_iu.iuid, "first_iu_created_at":first_iu.created_at,"last_iuid":last_iu.iuid, "last_iu_created_at":last_iu.created_at}
+            if first_iu.grounded_in is not None:
+                args["first_grounded_in_created_at"] = first_iu.grounded_in.created_at
+            if first_iu.previous_iu is not None:
+                args["first_previous_iu_created_at"] = first_iu.previous_iu.created_at
+            if last_iu.grounded_in is not None:
+                args["last_grounded_in_created_at"] = last_iu.grounded_in.created_at
+            if last_iu.previous_iu is not None:
+                args["last_previous_iu_created_at"] = last_iu.previous_iu.created_at
+            self.terminal_logger.info("append UM", **args)
+            self.file_logger.info("append UM", **args)
+        else : 
+            self.file_logger.info("append UM")
+            
     def subscribe(self, module, q=None):
         """Subscribe a module to the queue.
 
@@ -848,6 +878,9 @@ class AbstractModule:
                                 self.terminal_logger.warning("Warning: the module {} can't handle type of IU {}. Will ignore this IU type.".format(self.name(), viu), iu_type=viu)
                                 self.found_invalid_ius.append(viu)
                             continue
+                        # logging process update
+                        self.terminal_logger.info("process_update")
+                        self.file_logger.info("process_update")
                         output_message = self.process_update(update_message)
                         update_message.set_processed(self)
                         for input_iu in update_message.incremental_units():
