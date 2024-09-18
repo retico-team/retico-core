@@ -177,7 +177,8 @@ class TextRecorderModule(retico_core.AbstractConsumingModule):
         self.separator = separator
         self.txt_file = None
 
-    def setup(self):
+    def setup(self, **kwargs):
+        super().setup(**kwargs)
         self.txt_file = open(self.filename, "w")
 
     def shutdown(self):

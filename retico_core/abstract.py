@@ -529,17 +529,23 @@ class AbstractModule:
             force=True # <-- HERE BECAUSE IMPORTING SOME LIBS LIKE COQUITTS WAS BLOCKING THE LOGGINGS SYSTEM
         )
         
-        def filter_modules(_, __, event_dict):
+        def filter_is_module(_, __, event_dict):
             # print("event_dict ", event_dict)
             if not event_dict.get("module"):
                 raise structlog.DropEvent
             return event_dict
         
-        def filter_module(_, __, event_dict):
+        def filter_modules(_, __, event_dict):
             if event_dict.get("module"):
-                if event_dict.get("module") == "Microphone Module":
+                if event_dict.get("module") in ["Microphone Module", "VADTurn Module"]:
                     raise structlog.DropEvent
             return event_dict
+        
+        # def filter_module(_, __, event_dict):
+        #     if event_dict.get("module"):
+        #         if event_dict.get("module") == "Microphone Module":
+        #             raise structlog.DropEvent
+        #     return event_dict
         
         def filter_event(_, __, event_dict):
             if event_dict.get("event"):
@@ -557,9 +563,10 @@ class AbstractModule:
             processors=[
                 structlog.processors.TimeStamper(fmt="iso"),
                 structlog.processors.add_log_level,
+                filter_is_module,
                 filter_modules,
-                filter_module,
-                filter_event,
+                # filter_module,
+                # filter_event,
                 # filter_log_level,
                 structlog.dev.ConsoleRenderer(
                     colors=True
@@ -920,7 +927,7 @@ class AbstractModule:
                 return True
         return False
 
-    def setup(self, log_folder):
+    def setup(self, log_folder=None, terminal_logger=None, file_logger=None):
         """This method is called before the module is run. This method can be
         used to set up the pipeline needed for processing the IUs.
 
@@ -929,7 +936,9 @@ class AbstractModule:
         a module is run use the `prepare_run` method.
         """
         self.log_path = log_folder
-        self.configurate_logger(self.log_path)
+        # self.configurate_logger(self.log_path)
+        self.file_logger = file_logger.bind(module=self.name())
+        self.terminal_logger = terminal_logger.bind(module=self.name())
         self.terminal_logger.info("setup")
         self.file_logger.info("setup")
 
