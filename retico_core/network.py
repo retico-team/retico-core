@@ -15,7 +15,15 @@ import time
 import retico_core
 import structlog
 
-LOG_FILTERS = []
+
+def filter_all(_, __, event_dict):
+    if event_dict.get("module"):
+        raise structlog.DropEvent
+    return event_dict
+
+
+# LOG_FILTERS = []
+LOG_FILTERS = [filter_all]
 
 
 class Logger:
@@ -141,6 +149,7 @@ def configurate_logger(log_path):
         [
             structlog.processors.TimeStamper(fmt="iso"),
             structlog.processors.add_log_level,
+            structlog.processors.dict_tracebacks,
         ]
         + LOG_FILTERS
         + [structlog.dev.ConsoleRenderer(colors=True)]

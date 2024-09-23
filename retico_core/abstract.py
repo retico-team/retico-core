@@ -563,6 +563,7 @@ class AbstractModule:
             processors=[
                 structlog.processors.TimeStamper(fmt="iso"),
                 structlog.processors.add_log_level,
+                structlog.processors.dict_tracebacks,
                 filter_is_module,
                 filter_modules,
                 # filter_module,
@@ -1017,10 +1018,8 @@ class AbstractModule:
         self._previous_iu = new_iu
         
         try:
-            # self.terminal_logger.info("create_iu", **new_iu.__dict__)
-            # self.file_logger.info("create_iu", **new_iu.__dict__)
-            self.terminal_logger.info("create_iu", iuid=new_iu.iuid, previous_iu=new_iu.previous_iu, grounded_in=new_iu.grounded_in)
-            self.file_logger.info("create_iu", iuid=new_iu.iuid, previous_iu=new_iu.previous_iu, grounded_in=new_iu.grounded_in)
+            self.terminal_logger.info("create_iu", iuid=new_iu.iuid, previous_iu = new_iu.previous_iu.iuid if new_iu.previous_iu is not None else None, grounded_in=new_iu.grounded_in.iuid if new_iu.grounded_in is not None else None)
+            self.file_logger.info("create_iu", iuid=new_iu.iuid, previous_iu = new_iu.previous_iu.iuid if new_iu.previous_iu is not None else None, grounded_in=new_iu.grounded_in.iuid if new_iu.grounded_in is not None else None)
         except Exception:
             self.terminal_logger.exception("error")
         return new_iu

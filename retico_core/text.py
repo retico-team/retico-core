@@ -61,6 +61,32 @@ def get_text_increment(module, new_text):
     return um, new_tokens
 
 
+# class TextIU(retico_core.IncrementalUnit):
+#     """An IU that contains text."""
+
+#     @staticmethod
+#     def type():
+#         return "Text IU"
+
+#     def get_text(self):
+#         """Return the text contained in the IU.
+
+#         Returns:
+#             str: The text contained in the IU.
+#         """
+#         return self.payload
+
+#     def set_text(self, text):
+#         """Sets the text contained in the IU.
+
+#         Args:
+#             text (str): The new text of the IU
+#         """
+#         self.payload = text
+
+#     text = property(get_text, set_text)
+
+
 class TextIU(retico_core.IncrementalUnit):
     """An IU that contains text."""
 
@@ -68,23 +94,10 @@ class TextIU(retico_core.IncrementalUnit):
     def type():
         return "Text IU"
 
-    def get_text(self):
-        """Return the text contained in the IU.
-
-        Returns:
-            str: The text contained in the IU.
-        """
-        return self.payload
-
-    def set_text(self, text):
-        """Sets the text contained in the IU.
-
-        Args:
-            text (str): The new text of the IU
-        """
+    def __init__(self, text=None, **kwargs):
+        super().__init__(**kwargs)
         self.payload = text
-
-    text = property(get_text, set_text)
+        self.text = text
 
 
 class GeneratedTextIU(TextIU):
@@ -113,7 +126,7 @@ class SpeechRecognitionIU(TextIU):
     def __init__(
         self,
         creator,
-        iuid=0,
+        iuid="0",
         previous_iu=None,
         grounded_in=None,
         predictions=None,
