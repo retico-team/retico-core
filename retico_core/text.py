@@ -136,17 +136,15 @@ class SpeechRecognitionIU(TextIU):
         final=None,
     ):
         super().__init__(
-            creator,
+            creator=creator,
             iuid=iuid,
             previous_iu=previous_iu,
             grounded_in=grounded_in,
-            payload=text,
+            text=text,
         )
         self.predictions = predictions
         self.stability = stability
         self.confidence = confidence
-        self.payload = text
-        self.text = text
         self.final = final
 
     def set_asr_results(self, predictions, text, stability, confidence, final):
