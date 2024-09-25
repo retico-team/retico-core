@@ -116,6 +116,46 @@ def filter_value_not_in_list(_, __, event_dict, key, values):
     return event_dict
 
 
+def filter_conditions(_, __, event_dict, conditions):
+    """
+    filter function for the structlog terminal logger.
+    This function deletes logs that doesn't match the complete list of conditions.
+    The conditions are a tuple (key, values), to verify the condition, the log has to have the key, and the corresponding key has to be present in the condition's values list.
+
+    Example :
+    conditions = [("module":["Microphone Module"]), ("event":["create_iu", "append UM"])]
+    Meaning of the conditions : KEEP IF module is "Microphone Module" AND event is in ["create_iu", "append UM"]
+    """
+    for key, values in conditions:
+        if event_dict.get(key):
+            if event_dict.get(key) in values:
+                continue
+        raise structlog.DropEvent
+    return event_dict
+
+
+def filter_cases(_, __, event_dict, cases):
+    """
+    filter function for the structlog terminal logger.
+    This function deletes logs that matchs none of the different cases, each case is a list of conditions that have to be completely validated.
+    The conditions are a tuple (key, values), to verify the condition, the log has to have the key, and the corresponding key has to be present in the condition's values list.
+
+    Example :
+    cases = [[("module":["Micro"]), ("event":["create_iu", "append UM"])], [("module":["Speaker"]), ("event":["create_iu"])]]
+    Meaning of the conditions : KEEP IF ((module is "Microphone Module" AND event is in ["create_iu", "append UM"])  OR (module is "Speaker Module" AND event is "append UM"))
+    """
+    for conditions in cases:
+        boolean = True
+        for key, values in conditions:
+            if event_dict.get(key):
+                if event_dict.get(key) in values:
+                    continue
+            boolean = False
+        if boolean:
+            return event_dict
+    raise structlog.DropEvent
+
+
 def extract_number(f):
     s = re.findall("\d+$", f)
     return (int(s[0]) if s else -1, f)
