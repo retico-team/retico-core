@@ -33,7 +33,15 @@ config = {
     "version": __version__,
     "python_requires": ">=3.6, <4",
     "keywords": "retico, framework, incremental, dialogue, dialog",
-    "install_requires": ["pyaudio>=0.2.12", "torch", "keyboard", "structlog"],
+    "install_requires": [
+        "pyaudio>=0.2.12",
+        "torch",
+        "keyboard",
+        "structlog",
+        "colorama",
+        "matplotlib",
+        "pandas",
+    ],
     "packages": find_packages(),
     "name": "retico-core",
     "classifiers": [
