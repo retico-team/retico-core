@@ -14,50 +14,12 @@ import threading
 import time
 import retico_core
 import structlog
-
-
-def filter_all(_, __, event_dict):
-    if event_dict.get("module"):
-        raise structlog.DropEvent
-    return event_dict
+from retico_core.log_utils import filter_all, filter_all_but_warnings_and_errors
 
 
 # LOG_FILTERS = []
-LOG_FILTERS = [filter_all]
-
-
-class Logger:
-
-    def __init__(self, logger):
-        self.logger = logger
-        self.queue = deque()
-        t = threading.Thread(target=self.run_logging)
-        t.start()
-
-    def append(self, data, level):
-        self.queue.append((data, level))
-
-    def bind(self, **kwargs):
-        self.logger.bind(**kwargs)
-
-    def debug(self, data):
-        self.queue.append((data, "debug"))
-
-    def info(self, data):
-        self.queue.append((data, "info"))
-
-    def warning(self, data):
-        self.queue.append((data, "warning"))
-
-    def run_logging(self):
-        while True:
-            if len(self.queue) == 0:
-                time.sleep(0.1)
-                continue
-            data, level = self.queue.popleft()
-            print("lala")
-            print(self.logger)
-            getattr(self.logger, level)(data)
+# LOG_FILTERS = [filter_all]
+LOG_FILTERS = [filter_all_but_warnings_and_errors]
 
 
 def load(filename: str):
@@ -149,7 +111,7 @@ def configurate_logger(log_path):
         [
             structlog.processors.TimeStamper(fmt="iso"),
             structlog.processors.add_log_level,
-            structlog.processors.dict_tracebacks,
+            # structlog.processors.dict_tracebacks,
         ]
         + LOG_FILTERS
         + [structlog.dev.ConsoleRenderer(colors=True)]
@@ -183,7 +145,7 @@ def configurate_logger(log_path):
         processors=[
             structlog.processors.TimeStamper(fmt="iso"),
             structlog.processors.add_log_level,
-            structlog.processors.dict_tracebacks,
+            # structlog.processors.dict_tracebacks,
             structlog.processors.JSONRenderer(),  # Format JSON pour le fichier
         ],
     )

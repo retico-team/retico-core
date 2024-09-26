@@ -20,7 +20,9 @@ import time
 import enum
 import copy
 import json
+import traceback
 import structlog
+from retico_core.log_utils import log_exception
 
 
 class UpdateType(enum.Enum):
@@ -599,7 +601,7 @@ class AbstractModule:
             processors=[
                 structlog.processors.TimeStamper(fmt="iso"),
                 structlog.processors.add_log_level,
-                structlog.processors.dict_tracebacks,
+                # structlog.processors.dict_tracebacks,
                 structlog.processors.JSONRenderer(),  # Format JSON pour le fichier
             ],
         )
@@ -868,42 +870,45 @@ class AbstractModule:
         self.prepare_run()
         self._is_running = True
         while self._is_running:
-            for buffer in self._left_buffers:
-                with self.mutex:
-                    try:
-                        update_message = buffer.get(timeout=self.QUEUE_TIMEOUT)
-                    except queue.Empty:
-                        update_message = None
-                    if update_message:
-                        '''
-                        If this module gets an invalid IU, print a warning the first time
-                        then ignore thereafter. 
-                        '''
-                        if not update_message.has_valid_ius(self.input_ius()):
-                            viu = update_message.found_invalid_iu
-                            if viu not in self.found_invalid_ius:
-                                self.file_logger.warning("Warning: the module {} can't handle type of IU {}. Will ignore this IU type.".format(self.name(), viu), iu_type=viu)
-                                self.terminal_logger.warning("Warning: the module {} can't handle type of IU {}. Will ignore this IU type.".format(self.name(), viu), iu_type=viu)
-                                self.found_invalid_ius.append(viu)
-                            continue
-                        # logging process update
-                        self.terminal_logger.info("process_update")
-                        self.file_logger.info("process_update")
-                        output_message = self.process_update(update_message)
-                        update_message.set_processed(self)
-                        for input_iu in update_message.incremental_units():
-                            self.event_call(self.EVENT_PROCESS_IU, {"iu": input_iu})
-                        self.event_call(
-                            self.EVENT_PROCESS_UPDATE_MESSAGE,
-                            {"update_message": update_message},
-                        )
-                        if output_message:
-                            if output_message.has_valid_ius(self.output_iu()):
-                                self.append(output_message)
-                            else:
-                                raise TypeError(
-                                    "This module should not produce IUs of this type."
-                                )
+            try :
+                for buffer in self._left_buffers:
+                    with self.mutex:
+                        try:
+                            update_message = buffer.get(timeout=self.QUEUE_TIMEOUT)
+                        except queue.Empty:
+                            update_message = None
+                        if update_message:
+                            '''
+                            If this module gets an invalid IU, print a warning the first time
+                            then ignore thereafter. 
+                            '''
+                            if not update_message.has_valid_ius(self.input_ius()):
+                                viu = update_message.found_invalid_iu
+                                if viu not in self.found_invalid_ius:
+                                    self.file_logger.warning("Warning: the module {} can't handle type of IU {}. Will ignore this IU type.".format(self.name(), viu), iu_type=viu)
+                                    self.terminal_logger.warning("Warning: the module {} can't handle type of IU {}. Will ignore this IU type.".format(self.name(), viu), iu_type=viu)
+                                    self.found_invalid_ius.append(viu)
+                                continue
+                            # logging process update
+                            self.terminal_logger.info("process_update")
+                            self.file_logger.info("process_update")
+                            output_message = self.process_update(update_message)
+                            update_message.set_processed(self)
+                            for input_iu in update_message.incremental_units():
+                                self.event_call(self.EVENT_PROCESS_IU, {"iu": input_iu})
+                            self.event_call(
+                                self.EVENT_PROCESS_UPDATE_MESSAGE,
+                                {"update_message": update_message},
+                            )
+                            if output_message:
+                                if output_message.has_valid_ius(self.output_iu()):
+                                    self.append(output_message)
+                                else:
+                                    raise TypeError(
+                                        "This module should not produce IUs of this type."
+                                    )
+            except Exception as e:
+                log_exception(module=self, exception=e)
         self.shutdown()
 
     def is_valid_input_iu(self, iu):
@@ -1020,8 +1025,8 @@ class AbstractModule:
         try:
             self.terminal_logger.info("create_iu", iuid=new_iu.iuid, previous_iu = new_iu.previous_iu.iuid if new_iu.previous_iu is not None else None, grounded_in=new_iu.grounded_in.iuid if new_iu.grounded_in is not None else None)
             self.file_logger.info("create_iu", iuid=new_iu.iuid, previous_iu = new_iu.previous_iu.iuid if new_iu.previous_iu is not None else None, grounded_in=new_iu.grounded_in.iuid if new_iu.grounded_in is not None else None)
-        except Exception:
-            self.terminal_logger.exception("error")
+        except Exception as e:
+            log_exception(module=self, exception=e)
         return new_iu
 
     def latest_iu(self):
@@ -1116,15 +1121,18 @@ class AbstractProducingModule(AbstractModule):
         self.prepare_run()
         self._is_running = True
         while self._is_running:
-            with self.mutex:
-                output_message = self.process_update(None)
-                if output_message:
-                    if output_message.has_valid_ius(self.output_iu()):
-                        self.append(output_message)
-                    else:
-                        raise TypeError(
-                            "This module should not produce IUs of this type."
-                        )
+            try :
+                with self.mutex:
+                    output_message = self.process_update(None)
+                    if output_message:
+                        if output_message.has_valid_ius(self.output_iu()):
+                            self.append(output_message)
+                        else:
+                            raise TypeError(
+                                "This module should not produce IUs of this type."
+                            )
+            except Exception as e:
+                log_exception(module=self, exception=e)
         self.shutdown()
 
     def process_update(self, update_message):
@@ -1187,8 +1195,11 @@ class AbstractTriggerModule(AbstractProducingModule):
         self.prepare_run()
         self._is_running = True
         while self._is_running:
-            with self.mutex:
-                time.sleep(0.05)
+            try :
+                with self.mutex:
+                    time.sleep(0.05)
+            except Exception as e:
+                log_exception(module=self, exception=e)
         self.shutdown()
 
     def process_update(self, update_message):

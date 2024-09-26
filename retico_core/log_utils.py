@@ -5,6 +5,7 @@ import json
 import datetime
 import os
 import re
+import traceback
 from matplotlib.lines import Line2D
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
@@ -154,6 +155,41 @@ def filter_cases(_, __, event_dict, cases):
         if boolean:
             return event_dict
     raise structlog.DropEvent
+
+
+def filter_all(_, __, event_dict):
+    """function that filters all log message that has a `module` key."""
+    if event_dict.get("module"):
+        raise structlog.DropEvent
+    return event_dict
+
+
+def filter_all_but_warnings_and_errors(_, __, event_dict):
+    """function that filters all log message that is not a warning or an error."""
+    cases = [
+        [
+            (
+                "level",
+                [
+                    "warning",
+                    "error",
+                ],
+            ),
+        ],
+    ]
+    return filter_cases(_, _, event_dict, cases=cases)
+
+
+def log_exception(module, exception):
+    module.terminal_logger.exception(
+        "The module encountered the following exception while running :"
+    )
+    module.file_logger.exception(
+        "The module encountered the following exception while running :",
+        tarcebacks=[
+            tb.replace('"', "'") for tb in traceback.format_tb(exception.__traceback__)
+        ],
+    )
 
 
 def extract_number(f):
