@@ -22,7 +22,7 @@ import copy
 import json
 import traceback
 import structlog
-from retico_core.log_utils import log_exception
+from retico_core.log_utils import log_exception, TerminalLogger, FileLogger
 
 
 class UpdateType(enum.Enum):
@@ -129,7 +129,7 @@ class IncrementalUnit:
         if grounded_in:
             self.meta_data = {**grounded_in.meta_data}
 
-        self.created_at =  datetime.datetime.now().isoformat()
+        self.created_at = datetime.datetime.now().isoformat()
         self._remove_old_links()
 
     def _remove_old_links(self):
@@ -154,7 +154,9 @@ class IncrementalUnit:
         Returns:
             float: The age of the IU in seconds
         """
-        return  datetime.datetime.now() - datetime.datetime.fromisoformat(self.created_at)
+        return datetime.datetime.now() - datetime.datetime.fromisoformat(
+            self.created_at
+        )
 
     def older_than(self, s):
         """Return whether the IU is older than s seconds.
@@ -217,23 +219,26 @@ class IncrementalUnit:
         if not isinstance(other, IncrementalUnit):
             return False
         return self.iuid == other.iuid
-    
+
     def to_zmq(self, update_type):
         """
         returns a formatted string that can be sent across zeromq
         """
         import datetime
+
         payload = {}
-        payload["originatingTime"] = datetime.datetime.now().isoformat() #zmq expected format
+        payload["originatingTime"] = (
+            datetime.datetime.now().isoformat()
+        )  # zmq expected format
         payload["message"] = self.payload
         payload["update_type"] = str(update_type)
         return payload
-    
+
     def from_zmq(self, zmq_data):
         """
         reconstitues an IU from a formatted zeromq string
         """
-        self.payload = zmq_data['message']
+        self.payload = zmq_data["message"]
 
     @staticmethod
     def type():
@@ -471,7 +476,7 @@ class AbstractModule:
                 d[k] = v
         return d
 
-    def __init__(self, queue_class=IncrementalQueue, meta_data={}, log_folder="logs/run", **kwargs):
+    def __init__(self, queue_class=IncrementalQueue, meta_data={}, **kwargs):
         """Initialize the module with a default IncrementalQueue.
 
         Args:
@@ -503,112 +508,12 @@ class AbstractModule:
             self.queue_class = queue_class
 
         self.iu_counter = 0
-        
+
         # set up logger
-        # log_filename = self.name().replace(" ",  "_")
-        # self.log_path = log_folder + "/" + log_filename
-        # self.log_path = manage_log_folder(log_folder, log_filename)
-        # self.log_path = log_folder
-        # self.configurate_logger(self.log_path)
-        self.log_path = None
-        self.file_logger = None
-        self.terminal_logger = None
-        
-    def configurate_logger(self, log_path):
-        """
-        Configure structlog's logger and set general logging args (timestamps,
-        log level, etc.)
-
-        Args:
-            filename: (str): name of file to write to.
-
-            foldername: (str): name of folder to write to.
-        """
-        
-        logging.basicConfig(
-            level=logging.INFO,
-            format="%(message)s",
-            force=True # <-- HERE BECAUSE IMPORTING SOME LIBS LIKE COQUITTS WAS BLOCKING THE LOGGINGS SYSTEM
-        )
-        
-        def filter_is_module(_, __, event_dict):
-            # print("event_dict ", event_dict)
-            if not event_dict.get("module"):
-                raise structlog.DropEvent
-            return event_dict
-        
-        def filter_modules(_, __, event_dict):
-            if event_dict.get("module"):
-                if event_dict.get("module") in ["Microphone Module", "VADTurn Module"]:
-                    raise structlog.DropEvent
-            return event_dict
-        
-        # def filter_module(_, __, event_dict):
-        #     if event_dict.get("module"):
-        #         if event_dict.get("module") == "Microphone Module":
-        #             raise structlog.DropEvent
-        #     return event_dict
-        
-        def filter_event(_, __, event_dict):
-            if event_dict.get("event"):
-                if event_dict.get("event") != "append UM":
-                    raise structlog.DropEvent
-            return event_dict
-
-        def filter_log_level(_, __, event_dict):
-            if event_dict.get("level"):
-                if event_dict.get("level") == "debug":
-                    raise structlog.DropEvent
-            return event_dict
-        
-        structlog.configure(
-            processors=[
-                structlog.processors.TimeStamper(fmt="iso"),
-                structlog.processors.add_log_level,
-                structlog.processors.dict_tracebacks,
-                filter_is_module,
-                filter_modules,
-                # filter_module,
-                # filter_event,
-                # filter_log_level,
-                structlog.dev.ConsoleRenderer(
-                    colors=True
-                ),  # Format lisible et coloré pour le terminal
-            ],
-            logger_factory=structlog.stdlib.LoggerFactory(),
-            wrapper_class=structlog.stdlib.BoundLogger,
-            cache_logger_on_first_use=True,
-        )
-
-        # Logger pour le terminal
-        self.terminal_logger = structlog.get_logger("terminal")
+        self.terminal_logger = TerminalLogger()
+        self.file_logger = FileLogger()
         self.terminal_logger = self.terminal_logger.bind(module=self.name())
-
-        # Configuration du logger pour le fichier
-        file_handler = logging.FileHandler(log_path, mode="a", encoding="UTF-8")
-        file_handler.setLevel(logging.INFO)
-
-        # Créer un logger standard sans handlers pour éviter la duplication des logs dans le terminal
-        file_only_logger = logging.getLogger("file_logger")
-        file_only_logger.addHandler(file_handler)
-        file_only_logger.propagate = (
-            False  # Empêche la propagation des logs vers les loggers parents
-        )
-
-        # Encapsuler ce logger avec structlog
-        self.file_logger = structlog.wrap_logger(
-            file_only_logger,
-            processors=[
-                structlog.processors.TimeStamper(fmt="iso"),
-                structlog.processors.add_log_level,
-                # structlog.processors.dict_tracebacks,
-                structlog.processors.JSONRenderer(),  # Format JSON pour le fichier
-            ],
-        )
         self.file_logger = self.file_logger.bind(module=self.name())
-        # # Utilisation des loggers
-        # self.terminal_logger.info("This is a terminal log.", module="user_login", user="john_doe")
-        # self.file_logger.info("This is a file log.", module="user_login", user="john_doe")
 
     def revoke(self, iu, remove_revoked=True):
         """Revokes an IU form the list of the current_input or current_output, depending
@@ -748,13 +653,17 @@ class AbstractModule:
             )
         for q in self._right_buffers:
             q.put(copy.copy(update_message))
-            
-        # self.terminal_logger.info("append UM")
+
         if len(update_message) != 0:
             ius = update_message._msgs
             first_iu = ius[0][0]
             last_iu = ius[-1][0]
-            args = {"first_iuid":first_iu.iuid, "first_iu_created_at":first_iu.created_at,"last_iuid":last_iu.iuid, "last_iu_created_at":last_iu.created_at}
+            args = {
+                "first_iuid": first_iu.iuid,
+                "first_iu_created_at": first_iu.created_at,
+                "last_iuid": last_iu.iuid,
+                "last_iu_created_at": last_iu.created_at,
+            }
             if first_iu.grounded_in is not None:
                 args["first_grounded_in_created_at"] = first_iu.grounded_in.created_at
             if first_iu.previous_iu is not None:
@@ -765,9 +674,9 @@ class AbstractModule:
                 args["last_previous_iu_created_at"] = last_iu.previous_iu.created_at
             self.terminal_logger.info("append UM", **args)
             self.file_logger.info("append UM", **args)
-        else : 
+        else:
             self.file_logger.info("append UM")
-            
+
     def subscribe(self, module, q=None):
         """Subscribe a module to the queue.
 
@@ -863,14 +772,14 @@ class AbstractModule:
         Returns:
             UpdateMessage: An update message that is produced by this module based
             on the incremental units that were given. May be None.
-        """ 
+        """
         raise NotImplementedError()
 
     def _run(self):
         self.prepare_run()
         self._is_running = True
         while self._is_running:
-            try :
+            try:
                 for buffer in self._left_buffers:
                     with self.mutex:
                         try:
@@ -878,15 +787,22 @@ class AbstractModule:
                         except queue.Empty:
                             update_message = None
                         if update_message:
-                            '''
-                            If this module gets an invalid IU, print a warning the first time
-                            then ignore thereafter. 
-                            '''
+                            # If this module gets an invalid IU, print a warning the first time then ignore thereafter.
                             if not update_message.has_valid_ius(self.input_ius()):
                                 viu = update_message.found_invalid_iu
                                 if viu not in self.found_invalid_ius:
-                                    self.file_logger.warning("Warning: the module {} can't handle type of IU {}. Will ignore this IU type.".format(self.name(), viu), iu_type=viu)
-                                    self.terminal_logger.warning("Warning: the module {} can't handle type of IU {}. Will ignore this IU type.".format(self.name(), viu), iu_type=viu)
+                                    self.file_logger.warning(
+                                        "Warning: the module {} can't handle type of IU {}. Will ignore this IU type.".format(
+                                            self.name(), viu
+                                        ),
+                                        iu_type=viu,
+                                    )
+                                    self.terminal_logger.warning(
+                                        "Warning: the module {} can't handle type of IU {}. Will ignore this IU type.".format(
+                                            self.name(), viu
+                                        ),
+                                        iu_type=viu,
+                                    )
                                     self.found_invalid_ius.append(viu)
                                 continue
                             # logging process update
@@ -933,7 +849,7 @@ class AbstractModule:
                 return True
         return False
 
-    def setup(self, log_folder=None, terminal_logger=None, file_logger=None):
+    def setup(self):
         """This method is called before the module is run. This method can be
         used to set up the pipeline needed for processing the IUs.
 
@@ -941,10 +857,6 @@ class AbstractModule:
         immediately be run. For code that should be executed immediately before
         a module is run use the `prepare_run` method.
         """
-        self.log_path = log_folder
-        # self.configurate_logger(self.log_path)
-        self.file_logger = file_logger.bind(module=self.name())
-        self.terminal_logger = terminal_logger.bind(module=self.name())
         self.terminal_logger.info("setup")
         self.file_logger.info("setup")
 
@@ -966,7 +878,7 @@ class AbstractModule:
         self.terminal_logger.info("shutdown")
         self.file_logger.info("shutdown")
 
-    def run(self, run_setup=True, log_folder=None):
+    def run(self, run_setup=True):
         """Run the processing pipeline of this module in a new thread. The
         thread can be stopped by calling the stop() method.
 
@@ -975,7 +887,7 @@ class AbstractModule:
             before the thread is started.
         """
         if run_setup:
-            self.setup(log_folder=log_folder)
+            self.setup()
         for q in self.right_buffers():
             with q.mutex:
                 q.queue.clear()
@@ -1017,14 +929,32 @@ class AbstractModule:
             iuid=f"{hash(self)}:{self.iu_counter}",
             previous_iu=self._previous_iu,
             grounded_in=grounded_in,
-            **kwargs
+            **kwargs,
         )
         self.iu_counter += 1
         self._previous_iu = new_iu
-        
+
         try:
-            self.terminal_logger.info("create_iu", iuid=new_iu.iuid, previous_iu = new_iu.previous_iu.iuid if new_iu.previous_iu is not None else None, grounded_in=new_iu.grounded_in.iuid if new_iu.grounded_in is not None else None)
-            self.file_logger.info("create_iu", iuid=new_iu.iuid, previous_iu = new_iu.previous_iu.iuid if new_iu.previous_iu is not None else None, grounded_in=new_iu.grounded_in.iuid if new_iu.grounded_in is not None else None)
+            self.terminal_logger.info(
+                "create_iu",
+                iuid=new_iu.iuid,
+                previous_iu=(
+                    new_iu.previous_iu.iuid if new_iu.previous_iu is not None else None
+                ),
+                grounded_in=(
+                    new_iu.grounded_in.iuid if new_iu.grounded_in is not None else None
+                ),
+            )
+            self.file_logger.info(
+                "create_iu",
+                iuid=new_iu.iuid,
+                previous_iu=(
+                    new_iu.previous_iu.iuid if new_iu.previous_iu is not None else None
+                ),
+                grounded_in=(
+                    new_iu.grounded_in.iuid if new_iu.grounded_in is not None else None
+                ),
+            )
         except Exception as e:
             log_exception(module=self, exception=e)
         return new_iu
@@ -1121,7 +1051,7 @@ class AbstractProducingModule(AbstractModule):
         self.prepare_run()
         self._is_running = True
         while self._is_running:
-            try :
+            try:
                 with self.mutex:
                     output_message = self.process_update(None)
                     if output_message:
@@ -1195,7 +1125,7 @@ class AbstractTriggerModule(AbstractProducingModule):
         self.prepare_run()
         self._is_running = True
         while self._is_running:
-            try :
+            try:
                 with self.mutex:
                     time.sleep(0.05)
             except Exception as e:

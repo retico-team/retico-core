@@ -2,93 +2,33 @@ import csv
 import datetime
 import os
 import json
-import datetime
-import os
+from pathlib import Path
 import re
 import traceback
-from matplotlib.lines import Line2D
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import matplotlib
 import structlog
-
-
-# LOGS FUNCTIONS
-# def manage_log_folder(log_folder, file_name):
-#     complete_path = log_folder + "/" + file_name
-#     if os.path.isfile(complete_path):  # if file path already exists
-#         return create_new_log_folder(log_folder) + "/" + file_name
-#     else:
-#         print("log_folder = ", log_folder)
-#         if not os.path.isdir(log_folder):
-#             os.makedirs(log_folder)
-#         return log_folder + "/" + file_name
+import pandas as pd
 
 
 def create_new_log_folder(log_folder):
+    """Function that creates a new folder to store the current run's log file. Find the last run's number and creates a new log folder with an increment of 1.
+
+    Args:
+        log_folder (str): the log_folder path where every run's log folder is stored.
+
+    Returns:
+        str: returns the final path of the run's log_file, with a format : logs/run_33/logs.log
+    """
     cpt = 0
     log_folder_full_path = log_folder + "_" + str(cpt)
     while os.path.isdir(log_folder_full_path):
         cpt += 1
         log_folder_full_path = log_folder + "_" + str(cpt)
-    # os.mkdir(log_folder_full_path)
     os.makedirs(log_folder_full_path)
     filepath = log_folder_full_path + "/logs.log"
     return filepath
-
-
-def write_logs(log_file, rows):
-    with open(log_file, "a", newline="") as f:
-        csv_writer = csv.writer(f)
-        for row in rows:
-            csv_writer.writerow(row)
-
-
-def merge_logs(log_folder):
-    wozmic_file = log_folder + "/wozmic.csv"
-    if not os.path.isfile(wozmic_file):
-        return None
-    asr_file = log_folder + "/asr.csv"
-    llm_file = log_folder + "/llm.csv"
-    tts_file = log_folder + "/tts.csv"
-    speaker_file = log_folder + "/speaker.csv"
-    files = [wozmic_file, asr_file, llm_file, tts_file, speaker_file]
-
-    res_file = log_folder + "/res.csv"
-    date_format = "%H:%M:%S.%f"
-
-    with open(res_file, "w", newline="") as w:
-        writer = csv.writer(w)
-        writer.writerow(["Module", "Start", "Stop", "Duration"])
-        first_start = None
-        last_stop = None
-        for fn in files:
-            if os.path.isfile(fn):
-                with open(fn, "r") as f:
-                    l = [fn, None, None, 0]
-                    for row in csv.reader(
-                        f
-                    ):  # TODO : is there only 1 start and 1 stop ?
-                        if row[0] == "Start":
-                            if l[1] is None or l[1] > row[1]:
-                                l[1] = row[1]
-                            if first_start is None or first_start > row[1]:
-                                first_start = row[1]
-                        elif row[0] == "Stop":
-                            if l[2] is None or l[2] < row[1]:
-                                l[2] = row[1]
-                            if last_stop is None or last_stop < row[1]:
-                                last_stop = row[1]
-                    if l[1] is not None and l[2] is not None:
-                        l[3] = datetime.datetime.strptime(
-                            l[2], date_format
-                        ) - datetime.datetime.strptime(l[1], date_format)
-                    writer.writerow(l)
-
-        total_duration = datetime.datetime.strptime(
-            last_stop, date_format
-        ) - datetime.datetime.strptime(first_start, date_format)
-        writer.writerow(["Total", first_start, last_stop, total_duration])
 
 
 def filter_has_key(_, __, event_dict, key):
@@ -181,15 +121,108 @@ def filter_all_but_warnings_and_errors(_, __, event_dict):
 
 
 def log_exception(module, exception):
+    """function that enable modules to log the encountered exceptions to both logger (terminal and file) in a unified way (and factorize code).
+
+    Args:
+        module (object): the module that encountered the exception.
+        exception (Exception): the encountered exception.
+    """
     module.terminal_logger.exception(
         "The module encountered the following exception while running :"
     )
+    # could maybe introduce errors while parsing the json logs, because of the " chars in the exception tracebacks
     module.file_logger.exception(
         "The module encountered the following exception while running :",
-        tarcebacks=[
-            tb.replace('"', "'") for tb in traceback.format_tb(exception.__traceback__)
-        ],
     )
+    # module.file_logger.exception(
+    #     "The module encountered the following exception while running :",
+    #     tarcebacks=[
+    #         tb.replace('"', "'") for tb in traceback.format_tb(exception.__traceback__)
+    #     ],
+    # )
+
+
+# LOG_FILTERS = []
+# LOG_FILTERS = [filter_all]
+LOG_FILTERS = [filter_all_but_warnings_and_errors]
+
+
+class TerminalLogger(structlog.BoundLogger):
+    """Dectorator / Singleton class of structlog.BoundLogger, that is used to configure / initialize once the terminal logger for the whole system."""
+
+    def __new__(cls, filters=None):
+        if not hasattr(cls, "instance"):
+            # Define filters for the terminal logs
+            if filters is not None:
+                log_filters = filters
+            else:
+                log_filters = LOG_FILTERS
+
+            # configure structlog to have a terminal logger
+            processors = (
+                [
+                    structlog.processors.TimeStamper(fmt="iso"),
+                    structlog.processors.add_log_level,
+                ]
+                + log_filters
+                + [structlog.dev.ConsoleRenderer(colors=True)]
+            )
+            structlog.configure(
+                processors=processors,
+                wrapper_class=structlog.stdlib.BoundLogger,
+                cache_logger_on_first_use=True,
+            )
+            terminal_logger = structlog.get_logger("terminal")
+
+            # log an info to cache the logger, using the config's cache_logger_on_first_use parameter
+            terminal_logger.info("init terminal logger")
+
+            # set the singleton instance
+            cls.instance = terminal_logger
+        return cls.instance
+
+
+class FileLogger(structlog.BoundLogger):
+    """Dectorator / Singleton class of structlog.BoundLogger, that is used to configure / initialize once the file logger for the whole system."""
+
+    def __new__(cls, log_path="logs/run"):
+        if not hasattr(cls, "instance"):
+            # configure structlog to have a file logger
+            structlog.configure(
+                processors=[
+                    structlog.processors.add_log_level,
+                    structlog.processors.TimeStamper(fmt="iso"),
+                    structlog.processors.ExceptionRenderer(),
+                    structlog.processors.JSONRenderer(),
+                ],
+                logger_factory=structlog.WriteLoggerFactory(
+                    file=Path(log_path).open("wt", encoding="utf-8")
+                ),
+                cache_logger_on_first_use=True,
+            )
+            file_logger = structlog.get_logger("file_logger")
+
+            # log an info to cache the logger, using the config's cache_logger_on_first_use parameter
+            file_logger.info("test file logger")
+
+            # set the singleton instance
+            cls.instance = file_logger
+        return cls.instance
+
+
+def configurate_logger(log_path="log/run", filters=None):
+    """
+    Configure structlog's logger and set general logging args (timestamps,
+    log level, etc.)
+
+    Args:
+        log_path: (str): logs folder's path.
+        filters: (list): list of function that filters logs that will be outputted in the terminal.
+    """
+    log_path = create_new_log_folder(log_path)
+    terminal_logger = TerminalLogger(filters=filters)
+    file_logger = FileLogger(log_path)
+    return terminal_logger, file_logger
 
 
 def extract_number(f):
@@ -214,7 +247,6 @@ def plotting_run(logfile_path=None, plot_saving_path=None):
         lines = f.readlines()
 
         for i, l in enumerate(lines):
-            pb_line = i, l
             try:
                 log = json.loads(l)
                 date = datetime.datetime.fromisoformat(log["timestamp"])
@@ -234,7 +266,7 @@ def plotting_run(logfile_path=None, plot_saving_path=None):
 
     print("nb_pb_line = ", nb_pb_line)
 
-    fig, ax = plt.subplots(figsize=(10, 5))
+    _, ax = plt.subplots(figsize=(10, 5))
     ax.plot(x_axis, y_axis, "+", color="b", label="create_iu", markersize=7)
     ax.plot(
         x_axis_append_UM,
@@ -262,7 +294,6 @@ def plotting_run(logfile_path=None, plot_saving_path=None):
     if not os.path.isdir(plot_saving_path):
         os.makedirs(plot_saving_path)
     plot_filename = plot_saving_path + "/plot_IU_exchange.png"
-    # plt.figsize = (10, 3)
     plt.savefig(plot_filename, dpi=200, bbox_inches="tight")
 
     # showing the plot
@@ -330,9 +361,8 @@ def plotting_run_2(logfile_path=None, plot_saving_path=None):
                 nb_pb_line += 1
 
     print("nb_pb_line = ", nb_pb_line)
-    # print(Line2D.markers.items())
 
-    fig, ax = plt.subplots(figsize=(10, 5))
+    _, ax = plt.subplots(figsize=(10, 5))
     ax.plot(x_axis, y_axis, "|", color="mediumblue", label="create_iu", markersize=12)
     ax.plot(
         x_axis_append_UM,
@@ -401,7 +431,6 @@ def plotting_run_2(logfile_path=None, plot_saving_path=None):
     if not os.path.isdir(plot_saving_path):
         os.makedirs(plot_saving_path)
     plot_filename = plot_saving_path + "/plot_IU_exchange.png"
-    # plt.figsize = (10, 3)
     plt.savefig(plot_filename, dpi=200, bbox_inches="tight")
 
     # showing the plot
@@ -420,7 +449,6 @@ def get_latency(logfile_path=None):
         lines = f.readlines()
         messages_per_module = {}
         for i, l in enumerate(lines):
-            pb_line = i, l
             try:
                 log = json.loads(l)
                 if log["event"] == "append UM":
@@ -480,9 +508,6 @@ def get_latency(logfile_path=None):
         last_module = module
 
 
-import pandas as pd
-
-
 def test_pandas(logfile_path=None):
     if logfile_path is None:
         subfolders = [f.path for f in os.scandir("logs/") if f.is_dir()]
@@ -491,7 +516,7 @@ def test_pandas(logfile_path=None):
     with open(logfile_path, encoding="utf-8") as f:
         lines = f.readlines()
         lines_json = []
-        for i, l in enumerate(lines):
+        for _, l in enumerate(lines):
             try:
                 lines_json.append(json.loads(l))
             except Exception:
@@ -557,13 +582,13 @@ def pandas_latency(logfile_path=None):
     append_msgs = df[df["event"] == "append UM"]
     for turn_id in range(BOT_timestamps.size):
         print("Turn ", turn_id)
-        BOT = BOT_timestamps.iloc[turn_id]
-        EOT = EOT_timestamps.iloc[turn_id]
+        bot = BOT_timestamps.iloc[turn_id]
+        eot = EOT_timestamps.iloc[turn_id]
         # print(BOT)
         # print(EOT)
         # print(append_msgs["timestamp"])
         append_msgs_turn_i = append_msgs[
-            (append_msgs["timestamp"] >= BOT) & (append_msgs["timestamp"] <= EOT)
+            (append_msgs["timestamp"] >= bot) & (append_msgs["timestamp"] <= eot)
         ]
         # print(append_msgs_turn_i["timestamp"])
 
@@ -737,7 +762,6 @@ def pandas_latency_2(logfile_path=None):
             )
 
         except ValueError:
-            # print(e.with_traceback())
             print(
                 "Turns where the user interrupted the agent before the agent had time to speak are not interesting for now"
             )

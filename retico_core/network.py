@@ -7,19 +7,7 @@ A Module that allows for saving and loading networks from and to file as well as
 starting and stopping them based on only a single module.
 """
 
-from collections import deque
-import logging
 import pickle
-import threading
-import time
-import retico_core
-import structlog
-from retico_core.log_utils import filter_all, filter_all_but_warnings_and_errors
-
-
-# LOG_FILTERS = []
-# LOG_FILTERS = [filter_all]
-LOG_FILTERS = [filter_all_but_warnings_and_errors]
 
 
 def load(filename: str):
@@ -50,7 +38,7 @@ def load(filename: str):
     return (module_list, connection_list)
 
 
-def load_and_execute(filename, log_folder="logs/run"):
+def load_and_execute(filename):
     """Loads a network from file and runs it.
 
     The network is loaded via the load-Method. Before running the network, it is
@@ -63,10 +51,8 @@ def load_and_execute(filename, log_folder="logs/run"):
     """
     module_list, _ = load(filename)
 
-    log_folder = retico_core.log_utils.create_new_log_folder(log_folder)
-
     for module in module_list:
-        module.setup(log_folder=log_folder)
+        module.setup()
 
     for module in module_list:
         module.run(run_setup=False)
@@ -90,71 +76,7 @@ def _discover_modules(module):
     return set(discovered_lb), set(discovered_rbs)
 
 
-def configurate_logger(log_path):
-    """
-    Configure structlog's logger and set general logging args (timestamps,
-    log level, etc.)
-
-    Args:
-        filename: (str): name of file to write to.
-
-        foldername: (str): name of folder to write to.
-    """
-
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(message)s",
-        force=True,  # <-- HERE BECAUSE IMPORTING SOME LIBS LIKE COQUITTS WAS BLOCKING THE LOGGINGS SYSTEM
-    )
-
-    processors = (
-        [
-            structlog.processors.TimeStamper(fmt="iso"),
-            structlog.processors.add_log_level,
-            # structlog.processors.dict_tracebacks,
-        ]
-        + LOG_FILTERS
-        + [structlog.dev.ConsoleRenderer(colors=True)]
-    )
-
-    structlog.configure(
-        processors=processors,
-        logger_factory=structlog.stdlib.LoggerFactory(),
-        wrapper_class=structlog.stdlib.BoundLogger,
-        cache_logger_on_first_use=True,
-    )
-
-    # Logger pour le terminal
-    terminal_logger = structlog.get_logger("terminal")
-    # self.terminal_logger = self.terminal_logger.bind(module=self.name())
-
-    # Configuration du logger pour le fichier
-    file_handler = logging.FileHandler(log_path, mode="a", encoding="UTF-8")
-    file_handler.setLevel(logging.INFO)
-
-    # Créer un logger standard sans handlers pour éviter la duplication des logs dans le terminal
-    file_only_logger = logging.getLogger("file_logger")
-    file_only_logger.addHandler(file_handler)
-    file_only_logger.propagate = (
-        False  # Empêche la propagation des logs vers les loggers parents
-    )
-
-    # Encapsuler ce logger avec structlog
-    file_logger = structlog.wrap_logger(
-        file_only_logger,
-        processors=[
-            structlog.processors.TimeStamper(fmt="iso"),
-            structlog.processors.add_log_level,
-            # structlog.processors.dict_tracebacks,
-            structlog.processors.JSONRenderer(),  # Format JSON pour le fichier
-        ],
-    )
-    # self.file_logger = self.file_logger.bind(module=self.name())
-
-    return terminal_logger, file_logger
-
-
-def run(module, log_folder="logs/run"):
+def run(module):
     """Properly prepares and runs a network based on one module or a list of modules.
 
     The network is automatically discovered so that only one module of the network has
@@ -168,20 +90,8 @@ def run(module, log_folder="logs/run"):
     """
     m_list, _ = discover(module)
 
-    # that is what creates 2 log_folder instead of 1
-    log_folder = retico_core.log_utils.create_new_log_folder(log_folder)
-
-    # create logger singleton
-    terminal_logger, file_logger = configurate_logger(log_path=log_folder)
-    # terminal_logger_class = Logger(logger=terminal_logger)
-    # terminal_logger_class = Logger(logger=file_logger)
-
     for m in m_list:
-        m.setup(
-            log_folder=log_folder,
-            terminal_logger=terminal_logger,
-            file_logger=file_logger,
-        )
+        m.setup()
 
     for m in m_list:
         m.run(run_setup=False)
