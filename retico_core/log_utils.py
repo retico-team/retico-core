@@ -235,7 +235,7 @@ def plotting_run(logfile_path=None, plot_saving_path=None):
         subfolders = [f.path for f in os.scandir("logs/") if f.is_dir()]
         max_run = max(subfolders, key=extract_number)
         logfile_path = max_run + "/logs.log"
-        plot_saving_path = "screens/" + max_run.split("/")[-1]
+        plot_saving_path = "run_plots/" + max_run.split("/")[-1]
     x_axis = []
     y_axis = []
     y_axis_append_UM = []
@@ -305,7 +305,7 @@ def plotting_run_2(logfile_path=None, plot_saving_path=None):
         subfolders = [f.path for f in os.scandir("logs/") if f.is_dir()]
         max_run = max(subfolders, key=extract_number)
         logfile_path = max_run + "/logs.log"
-        plot_saving_path = "screens/" + max_run.split("/")[-1]
+        plot_saving_path = "run_plots/" + max_run.split("/")[-1]
     x_axis = []
     y_axis = []
     y_axis_append_UM = []
@@ -772,7 +772,7 @@ if __name__ == "__main__":
     # test_structlog()
     # test_plot()
     # logfile_path = "logs/run_1/logs.log"
-    # plot_saving_path = "screens/run_1"
+    # plot_saving_path = "run_plots/run_1"
     # plotting_run(logfile_path, plot_saving_path)
 
     # plotting_run()
