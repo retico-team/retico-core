@@ -4,6 +4,8 @@ import os
 import json
 from pathlib import Path
 import re
+import threading
+import time
 import traceback
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
@@ -264,7 +266,7 @@ def plotting_run(logfile_path=None, plot_saving_path=None):
             except Exception:
                 nb_pb_line += 1
 
-    print("nb_pb_line = ", nb_pb_line)
+    # print("nb_pb_line = ", nb_pb_line)
 
     _, ax = plt.subplots(figsize=(10, 5))
     ax.plot(x_axis, y_axis, "+", color="b", label="create_iu", markersize=7)
@@ -306,6 +308,7 @@ def plotting_run_2(logfile_path=None, plot_saving_path=None):
         max_run = max(subfolders, key=extract_number)
         logfile_path = max_run + "/logs.log"
         plot_saving_path = "run_plots/" + max_run.split("/")[-1]
+
     x_axis = []
     y_axis = []
     y_axis_append_UM = []
@@ -435,6 +438,8 @@ def plotting_run_2(logfile_path=None, plot_saving_path=None):
 
     # showing the plot
     # plt.show()
+
+    plt.close()
 
 
 def get_latency(logfile_path=None):
@@ -767,6 +772,41 @@ def pandas_latency_2(logfile_path=None):
             )
 
 
+THREAD_ACTIVE = False
+REFRESHING_TIME = 1
+
+
+def plot_live():
+    """a looping function that creates a plot from the current run's log_file each `REFRESHING_TIME` seconds (if it's the biggest number in your `logs` folder)"""
+    while THREAD_ACTIVE:
+        plotting_run_2()
+        time.sleep(REFRESHING_TIME)
+
+
+def setup_plot_live():
+    """a function that initializes and starts a thread from the looping function `plot_live`, to create a plot from the log_file in real time passively."""
+    threading.Thread(target=plot_live).start()
+
+
+def stop_plot_live():
+    """a function that stops plot_live's thread. Supposed to be called at the end of the run by the `network`"""
+    global THREAD_ACTIVE
+    THREAD_ACTIVE = False
+
+
+def configurate_plot(plot_live=False, refreshing_time=1):
+    """A function that configures the global parameters `THREAD_ACTIVE` and `REFRESHING_TIME`.
+    These two parameters will be used by the `plot_live` function to create a plot from the current run's log_file in real time.
+
+    Args:
+        plot_live (bool, optional): If set to True, a plot from the current run's log_file will be created in real time. If set to False, it will only be created at the end of the run. Defaults to False.
+        refreshing_time (int, optional): The refreshing time (in seconds) between two creation of plots when `plot_live` is set to `True`. Defaults to 1.
+    """
+    global THREAD_ACTIVE, REFRESHING_TIME
+    THREAD_ACTIVE = plot_live
+    REFRESHING_TIME = refreshing_time
+
+
 if __name__ == "__main__":
 
     # test_structlog()
@@ -776,7 +816,11 @@ if __name__ == "__main__":
     # plotting_run(logfile_path, plot_saving_path)
 
     # plotting_run()
-    plotting_run_2()
+    # plotting_run_2()
+
+    threading.Thread(target=plot_live).start()
+    input()
+    THREAD_ACTIVE = False
 
     # get_latency()
 
