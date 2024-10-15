@@ -1,5 +1,6 @@
 import csv
 import datetime
+from functools import partial
 import os
 import json
 from pathlib import Path
@@ -205,7 +206,7 @@ class FileLogger(structlog.BoundLogger):
             file_logger = structlog.get_logger("file_logger")
 
             # log an info to cache the logger, using the config's cache_logger_on_first_use parameter
-            file_logger.info("test file logger")
+            file_logger.info("init file logger")
 
             # set the singleton instance
             cls.instance = file_logger
@@ -438,6 +439,165 @@ def plotting_run_2(logfile_path=None, plot_saving_path=None):
 
     # showing the plot
     # plt.show()
+
+    plt.close()
+
+
+def log_event(
+    log_data, events_to_log, events_dict, event, event_config, module, date, module_name
+):
+    boolean = events_dict is not None and event_config in events_dict
+    if boolean:
+        if event not in log_data["events"]:
+            log_data["events"][event] = {"x_axis": [], "y_axis": []}
+            if "plot_settings" in events_to_log[module]["events"][event_config]:
+                log_data["events"][event]["plot_settings"] = events_to_log[module][
+                    "events"
+                ][event_config]["plot_settings"]
+        log_data["events"][event]["x_axis"].append(date)
+        log_data["events"][event]["y_axis"].append(module_name)
+    return log_data, boolean
+
+
+def plotting_run_3(plot_config, logfile_path=None, plot_saving_path=None):
+    terminal_logger = TerminalLogger()
+
+    if logfile_path is None or plot_saving_path is None:
+        subfolders = [f.path for f in os.scandir("logs/") if f.is_dir()]
+        max_run = max(subfolders, key=extract_number)
+        logfile_path = max_run + "/logs.log"
+        plot_saving_path = "run_plots/" + max_run.split("/")[-1]
+
+    if plot_config is None:
+        raise NotImplementedError
+    else:
+        with open(plot_config, encoding="utf-8") as f:
+            events_to_log = json.load(f)
+
+    e_every_m = None
+    if "any_module" in events_to_log and "events" in events_to_log["any_module"]:
+        e_every_m = events_to_log["any_module"]["events"]
+
+    log_data = {"events": {}}
+
+    nb_pb_line = 0
+
+    with open(logfile_path, encoding="utf-8") as f:
+        lines = f.readlines()
+
+    for i, l in enumerate(lines):
+        try:
+            log = json.loads(l)
+
+            m_name = log["module"] if "module" in log else None
+            e_name = log["event"] if "event" in log else None
+
+            if m_name is None:
+                continue
+
+            date = datetime.datetime.fromisoformat(log["timestamp"])
+            date_plt = mdates.date2num(date)
+            module_name = " ".join(m_name.split()[:1])
+
+            # log from event, from most specific to least specific
+            e_that_m = None
+            if m_name in events_to_log and "events" in events_to_log[m_name]:
+                e_that_m = events_to_log[m_name]["events"]
+
+            # if we specified in the config to log specific event from specific module
+            log_data, b = log_event(
+                log_data,
+                events_to_log,
+                e_that_m,
+                module_name + "_" + e_name,
+                e_name,
+                m_name,
+                date_plt,
+                module_name,
+            )
+            if b:
+                continue
+
+            # if we specified in the config to log specific event from any module
+            log_data, b = log_event(
+                log_data,
+                events_to_log,
+                e_every_m,
+                e_name,
+                e_name,
+                "any_module",
+                date_plt,
+                module_name,
+            )
+            if b:
+                continue
+
+            # if we specified in the config to log any event from specific module
+            log_data, b = log_event(
+                log_data,
+                events_to_log,
+                e_that_m,
+                "other_events_" + module_name,
+                "any_event",
+                m_name,
+                date_plt,
+                module_name,
+            )
+            if b:
+                continue
+
+            # if we specified in the config to log any event from any module
+            log_data, b = log_event(
+                log_data,
+                events_to_log,
+                e_every_m,
+                "other_events",
+                "any_event",
+                "any_module",
+                date_plt,
+                module_name,
+            )
+
+        except Exception:
+            nb_pb_line += 1
+
+    # print("nb_pb_line = ", nb_pb_line)
+
+    _, ax = plt.subplots(figsize=(10, 5))
+    # log from events, we could enhance this by logging from other data (timestamps, etc)
+    try:
+        for e_name, e_dict in log_data["events"].items():
+            if "plot_settings" in e_dict:
+                ax.plot(
+                    e_dict["x_axis"],
+                    e_dict["y_axis"],
+                    e_dict["plot_settings"]["marker"],
+                    color=e_dict["plot_settings"]["marker_color"],
+                    label=e_name,
+                    markersize=e_dict["plot_settings"]["marker_size"],
+                )
+            else:
+                ax.plot(
+                    e_dict["x_axis"],
+                    e_dict["y_axis"],
+                    "|",
+                    color="g",
+                    label=e_name,
+                    markersize=20,
+                )
+    except Exception:
+        terminal_logger.exception()
+
+    ax.grid(True)
+    ax.legend(fontsize="7", loc="center left")
+    plt.gca().xaxis.set_major_formatter(matplotlib.dates.DateFormatter("%H:%M:%S.%f"))
+    plt.xticks(fontsize=7)
+
+    # saving the plot
+    if not os.path.isdir(plot_saving_path):
+        os.makedirs(plot_saving_path)
+    plot_filename = plot_saving_path + "/plot_IU_exchange.png"
+    plt.savefig(plot_filename, dpi=200, bbox_inches="tight")
 
     plt.close()
 
@@ -774,12 +934,19 @@ def pandas_latency_2(logfile_path=None):
 
 THREAD_ACTIVE = False
 REFRESHING_TIME = 1
+LOG_FILE_PATH = None
+PLOT_SAVING_PATH = None
+PLOT_CONFIG = None
 
 
 def plot_live():
     """a looping function that creates a plot from the current run's log_file each `REFRESHING_TIME` seconds (if it's the biggest number in your `logs` folder)"""
     while THREAD_ACTIVE:
-        plotting_run_2()
+        plotting_run_3(
+            plot_config=PLOT_CONFIG,
+            logfile_path=LOG_FILE_PATH,
+            plot_saving_path=PLOT_SAVING_PATH,
+        )
         time.sleep(REFRESHING_TIME)
 
 
@@ -794,7 +961,13 @@ def stop_plot_live():
     THREAD_ACTIVE = False
 
 
-def configurate_plot(plot_live=False, refreshing_time=1):
+def configurate_plot(
+    plot_live=False,
+    refreshing_time=1,
+    logfile_path=None,
+    plot_saving_path=None,
+    plot_config=None,
+):
     """A function that configures the global parameters `THREAD_ACTIVE` and `REFRESHING_TIME`.
     These two parameters will be used by the `plot_live` function to create a plot from the current run's log_file in real time.
 
@@ -802,9 +975,12 @@ def configurate_plot(plot_live=False, refreshing_time=1):
         plot_live (bool, optional): If set to True, a plot from the current run's log_file will be created in real time. If set to False, it will only be created at the end of the run. Defaults to False.
         refreshing_time (int, optional): The refreshing time (in seconds) between two creation of plots when `plot_live` is set to `True`. Defaults to 1.
     """
-    global THREAD_ACTIVE, REFRESHING_TIME
+    global THREAD_ACTIVE, REFRESHING_TIME, LOG_FILE_PATH, PLOT_SAVING_PATH, PLOT_CONFIG
     THREAD_ACTIVE = plot_live
     REFRESHING_TIME = refreshing_time
+    PLOT_CONFIG = plot_config
+    LOG_FILE_PATH = logfile_path
+    PLOT_SAVING_PATH = plot_saving_path
 
 
 if __name__ == "__main__":
@@ -818,10 +994,11 @@ if __name__ == "__main__":
     # plotting_run()
     # plotting_run_2()
 
-    threading.Thread(target=plot_live).start()
-    input()
-    THREAD_ACTIVE = False
+    # threading.Thread(target=plot_live).start()
+    # input()
+    # THREAD_ACTIVE = False
 
+    plotting_run_3("plot_config_2.json")
     # get_latency()
 
     # pandas_latency()
