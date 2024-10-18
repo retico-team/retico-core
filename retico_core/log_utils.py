@@ -11,6 +11,7 @@ import traceback
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import matplotlib
+import numpy as np
 import structlog
 import pandas as pd
 
@@ -459,7 +460,9 @@ def log_event(
     return log_data, boolean
 
 
-def plotting_run_3(plot_config, logfile_path=None, plot_saving_path=None):
+def plotting_run_3(
+    plot_config, logfile_path=None, plot_saving_path=None, module_order=None
+):
     terminal_logger = TerminalLogger()
 
     if logfile_path is None or plot_saving_path is None:
@@ -561,16 +564,25 @@ def plotting_run_3(plot_config, logfile_path=None, plot_saving_path=None):
         except Exception:
             nb_pb_line += 1
 
-    # print("nb_pb_line = ", nb_pb_line)
-
     _, ax = plt.subplots(figsize=(10, 5))
     # log from events, we could enhance this by logging from other data (timestamps, etc)
     try:
         for e_name, e_dict in log_data["events"].items():
+            x = e_dict["x_axis"]
+            y = e_dict["y_axis"]
+            # re-order if the module_order parameter is set
+            if module_order is not None:
+                x_np = np.array(e_dict["x_axis"])
+                y_np = np.array(e_dict["y_axis"])
+                reordered_indices = np.concatenate(
+                    [np.where(y_np == o)[0] for o in module_order]
+                )
+                x = x_np[reordered_indices]
+                y = y_np[reordered_indices]
             if "plot_settings" in e_dict:
                 ax.plot(
-                    e_dict["x_axis"],
-                    e_dict["y_axis"],
+                    x,
+                    y,
                     e_dict["plot_settings"]["marker"],
                     color=e_dict["plot_settings"]["marker_color"],
                     label=e_name,
@@ -937,6 +949,7 @@ REFRESHING_TIME = 1
 LOG_FILE_PATH = None
 PLOT_SAVING_PATH = None
 PLOT_CONFIG = None
+MODULE_ORDER = None
 
 
 def plot_live():
@@ -967,6 +980,7 @@ def configurate_plot(
     logfile_path=None,
     plot_saving_path=None,
     plot_config=None,
+    module_order=None,
 ):
     """A function that configures the global parameters `THREAD_ACTIVE` and `REFRESHING_TIME`.
     These two parameters will be used by the `plot_live` function to create a plot from the current run's log_file in real time.
@@ -975,12 +989,14 @@ def configurate_plot(
         plot_live (bool, optional): If set to True, a plot from the current run's log_file will be created in real time. If set to False, it will only be created at the end of the run. Defaults to False.
         refreshing_time (int, optional): The refreshing time (in seconds) between two creation of plots when `plot_live` is set to `True`. Defaults to 1.
     """
-    global THREAD_ACTIVE, REFRESHING_TIME, LOG_FILE_PATH, PLOT_SAVING_PATH, PLOT_CONFIG
+    global THREAD_ACTIVE, REFRESHING_TIME, LOG_FILE_PATH, PLOT_SAVING_PATH, PLOT_CONFIG, MODULE_ORDER
     THREAD_ACTIVE = plot_live
     REFRESHING_TIME = refreshing_time
     PLOT_CONFIG = plot_config
     LOG_FILE_PATH = logfile_path
     PLOT_SAVING_PATH = plot_saving_path
+    MODULE_ORDER = module_order
+    
 
 
 if __name__ == "__main__":
@@ -998,7 +1014,7 @@ if __name__ == "__main__":
     # input()
     # THREAD_ACTIVE = False
 
-    plotting_run_3("plot_config_2.json")
+    plotting_run_3("plot_config.json")
     # get_latency()
 
     # pandas_latency()
