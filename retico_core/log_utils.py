@@ -996,7 +996,6 @@ def configurate_plot(
     LOG_FILE_PATH = logfile_path
     PLOT_SAVING_PATH = plot_saving_path
     MODULE_ORDER = module_order
-    
 
 
 if __name__ == "__main__":
@@ -1014,7 +1013,16 @@ if __name__ == "__main__":
     # input()
     # THREAD_ACTIVE = False
 
-    plotting_run_3("plot_config.json")
+    module_order = [
+        "Microphone",
+        "VAD",
+        "DialogueManager",
+        "WhisperASR",
+        "LLM",
+        "TTS",
+        "Speaker",
+    ]
+    plotting_run_3("plot_config_3.json", module_order=module_order)
     # get_latency()
 
     # pandas_latency()

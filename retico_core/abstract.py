@@ -281,7 +281,7 @@ class UpdateMessage:
         return um
 
     @classmethod
-    def from_iu_list(cls, self, iu_list):
+    def from_iu_list(cls, self, iu_list: list[tuple[IncrementalUnit, UpdateType]]):
         """Initializes the update message with a list of tuples containing the update
         type and incremental units in the format (IncrementalUnit, UpdateType)
 
@@ -331,7 +331,9 @@ class UpdateMessage:
             update_type = UpdateType(update_type)
         self._msgs.append((iu, update_type))
 
-    def add_ius(self, iu_list, strict_update_type=True):
+    def add_ius(
+        self, iu_list: list[tuple[IncrementalUnit, UpdateType]], strict_update_type=True
+    ):
         """Adds a list of incremental units and according update types to the update
         message.
 
@@ -350,14 +352,14 @@ class UpdateMessage:
                 given argument cannot be converted to an UpdateType. Only applies if the
                 strict_update_type flag is set.
         """
-        for update_type, iu in iu_list:
+        for iu, update_type in iu_list:
             if not isinstance(iu, IncrementalUnit):
                 raise TypeError(
                     "IU is of type %s but should be IncrementalUnit" % type(iu)
                 )
             if strict_update_type and not isinstance(update_type, UpdateType):
                 UpdateType(update_type)
-        for update_type, iu in iu_list:
+        for iu, update_type in iu_list:
             if strict_update_type and not isinstance(update_type, UpdateType):
                 update_type = UpdateType(update_type)
             self._msgs.append((iu, update_type))
