@@ -1,38 +1,15 @@
-import csv
 import datetime
-from functools import partial
 import os
 import json
 from pathlib import Path
 import re
 import threading
 import time
-import traceback
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import matplotlib
 import numpy as np
 import structlog
-import pandas as pd
-
-
-def create_new_log_folder(log_folder):
-    """Function that creates a new folder to store the current run's log file. Find the last run's number and creates a new log folder with an increment of 1.
-
-    Args:
-        log_folder (str): the log_folder path where every run's log folder is stored.
-
-    Returns:
-        str: returns the final path of the run's log_file, with a format : logs/run_33/logs.log
-    """
-    cpt = 0
-    log_folder_full_path = log_folder + "_" + str(cpt)
-    while os.path.isdir(log_folder_full_path):
-        cpt += 1
-        log_folder_full_path = log_folder + "_" + str(cpt)
-    os.makedirs(log_folder_full_path)
-    filepath = log_folder_full_path + "/logs.log"
-    return filepath
 
 
 def filter_has_key(_, __, event_dict, key):
@@ -146,6 +123,25 @@ def log_exception(module, exception):
     # )
 
 
+def create_new_log_folder(log_folder):
+    """Function that creates a new folder to store the current run's log file. Find the last run's number and creates a new log folder with an increment of 1.
+
+    Args:
+        log_folder (str): the log_folder path where every run's log folder is stored.
+
+    Returns:
+        str: returns the final path of the run's log_file, with a format : logs/run_33/logs.log
+    """
+    cpt = 0
+    log_folder_full_path = log_folder + "_" + str(cpt)
+    while os.path.isdir(log_folder_full_path):
+        cpt += 1
+        log_folder_full_path = log_folder + "_" + str(cpt)
+    os.makedirs(log_folder_full_path)
+    filepath = log_folder_full_path + "/logs.log"
+    return filepath
+
+
 # LOG_FILTERS = []
 # LOG_FILTERS = [filter_all]
 LOG_FILTERS = [filter_all_but_warnings_and_errors]
@@ -234,225 +230,37 @@ def extract_number(f):
     return (int(s[0]) if s else -1, f)
 
 
-def plotting_run(logfile_path=None, plot_saving_path=None):
-    if logfile_path is None or plot_saving_path is None:
-        subfolders = [f.path for f in os.scandir("logs/") if f.is_dir()]
-        max_run = max(subfolders, key=extract_number)
-        logfile_path = max_run + "/logs.log"
-        plot_saving_path = "run_plots/" + max_run.split("/")[-1]
-    x_axis = []
-    y_axis = []
-    y_axis_append_UM = []
-    x_axis_append_UM = []
-    x_axis_process_update = []
-    y_axis_process_update = []
-    nb_pb_line = 0
-    with open(logfile_path, encoding="utf-8") as f:
-        lines = f.readlines()
-
-        for i, l in enumerate(lines):
-            try:
-                log = json.loads(l)
-                date = datetime.datetime.fromisoformat(log["timestamp"])
-                date_plt = mdates.date2num(date)
-                module_name = " ".join(log["module"].split()[:1])
-                if log["event"] == "create_iu":
-                    x_axis.append(date_plt)
-                    y_axis.append(module_name)
-                elif log["event"] == "append UM":
-                    x_axis_append_UM.append(date_plt)
-                    y_axis_append_UM.append(module_name)
-                elif log["event"] == "process_update":
-                    x_axis_process_update.append(date_plt)
-                    y_axis_process_update.append(module_name)
-            except Exception:
-                nb_pb_line += 1
-
-    # print("nb_pb_line = ", nb_pb_line)
-
-    _, ax = plt.subplots(figsize=(10, 5))
-    ax.plot(x_axis, y_axis, "+", color="b", label="create_iu", markersize=7)
-    ax.plot(
-        x_axis_append_UM,
-        y_axis_append_UM,
-        "^",
-        color="c",
-        label="append UM",
-        markersize=3,
-    )
-    ax.plot(
-        x_axis_process_update,
-        y_axis_process_update,
-        "o",
-        color="darkorange",
-        label="process_update",
-        markersize=1,
-    )
-
-    ax.grid(True)
-    ax.legend()
-    plt.gca().xaxis.set_major_formatter(matplotlib.dates.DateFormatter("%H:%M:%S.%f"))
-    plt.xticks(fontsize=7)
-
-    # saving the plot
-    if not os.path.isdir(plot_saving_path):
-        os.makedirs(plot_saving_path)
-    plot_filename = plot_saving_path + "/plot_IU_exchange.png"
-    plt.savefig(plot_filename, dpi=200, bbox_inches="tight")
-
-    # showing the plot
-    # plt.show()
-
-
-def plotting_run_2(logfile_path=None, plot_saving_path=None):
-    if logfile_path is None or plot_saving_path is None:
-        subfolders = [f.path for f in os.scandir("logs/") if f.is_dir()]
-        max_run = max(subfolders, key=extract_number)
-        logfile_path = max_run + "/logs.log"
-        plot_saving_path = "run_plots/" + max_run.split("/")[-1]
-
-    x_axis = []
-    y_axis = []
-    y_axis_append_UM = []
-    x_axis_append_UM = []
-    x_axis_process_update = []
-    y_axis_process_update = []
-    x_axis_vad = []
-    y_axis_vad = []
-    x_axis_sil = []
-    y_axis_sil = []
-    x_axis_agentEOT = []
-    y_axis_agentEOT = []
-    x_axis_int = []
-    y_axis_int = []
-    x_axis_spk = []
-    y_axis_spk = []
-    nb_pb_line = 0
-    with open(logfile_path, encoding="utf-8") as f:
-        lines = f.readlines()
-
-        for i, l in enumerate(lines):
-            pb_line = i, l
-            try:
-                log = json.loads(l)
-                date = datetime.datetime.fromisoformat(log["timestamp"])
-                date_plt = mdates.date2num(date)
-                module_name = " ".join(log["module"].split()[:1])
-                if log["event"] == "create_iu":
-                    x_axis.append(date_plt)
-                    y_axis.append(module_name)
-                elif log["event"] == "append UM":
-                    x_axis_append_UM.append(date_plt)
-                    y_axis_append_UM.append(module_name)
-                elif log["event"] == "process_update":
-                    x_axis_process_update.append(date_plt)
-                    y_axis_process_update.append(module_name)
-                elif log["module"] == "VADTurn Module":
-                    x_axis_vad.append(date_plt)
-                    y_axis_vad.append(module_name)
-                elif log["event"] == "output_silence":
-                    x_axis_sil.append(date_plt)
-                    y_axis_sil.append(module_name)
-                elif log["event"] == "agent_EOT":
-                    x_axis_agentEOT.append(date_plt)
-                    y_axis_agentEOT.append(module_name)
-                elif log["event"] == "interruption":
-                    x_axis_int.append(date_plt)
-                    y_axis_int.append(module_name)
-                elif log["event"] == "output_audio":
-                    x_axis_spk.append(date_plt)
-                    y_axis_spk.append(module_name)
-            except Exception:
-                nb_pb_line += 1
-
-    print("nb_pb_line = ", nb_pb_line)
-
-    _, ax = plt.subplots(figsize=(10, 5))
-    ax.plot(x_axis, y_axis, "|", color="mediumblue", label="create_iu", markersize=12)
-    ax.plot(
-        x_axis_append_UM,
-        y_axis_append_UM,
-        "|",
-        color="deepskyblue",
-        label="append UM",
-        markersize=8,
-    )
-    ax.plot(
-        x_axis_process_update,
-        y_axis_process_update,
-        "|",
-        color="royalblue",
-        # color="dodgerblue",
-        label="process_update",
-        markersize=4,
-    )
-    ax.plot(
-        x_axis_vad,
-        y_axis_vad,
-        "|",
-        color="black",
-        label="VAD",
-        markersize=16,
-    )
-    ax.plot(
-        x_axis_sil,
-        y_axis_sil,
-        marker=3,
-        color="gray",
-        label="silence_outputted",
-        markersize=7,
-    )
-    ax.plot(
-        x_axis_agentEOT,
-        y_axis_agentEOT,
-        "|",
-        color="r",
-        label="agent_EOT",
-        markersize=15,
-    )
-    ax.plot(
-        x_axis_int,
-        y_axis_int,
-        "x",
-        color="r",
-        label="interruption",
-        markersize=10,
-    )
-    ax.plot(
-        x_axis_spk,
-        y_axis_spk,
-        "+",
-        color="g",
-        label="first_audio",
-        markersize=7,
-    )
-
-    ax.grid(True)
-    ax.legend(fontsize="7", loc="center left")
-    plt.gca().xaxis.set_major_formatter(matplotlib.dates.DateFormatter("%H:%M:%S.%f"))
-    plt.xticks(fontsize=7)
-
-    # saving the plot
-    if not os.path.isdir(plot_saving_path):
-        os.makedirs(plot_saving_path)
-    plot_filename = plot_saving_path + "/plot_IU_exchange.png"
-    plt.savefig(plot_filename, dpi=200, bbox_inches="tight")
-
-    # showing the plot
-    # plt.show()
-
-    plt.close()
-
-
 def log_event(
-    log_data, events_to_log, events_dict, event, event_config, module, date, module_name
+    log_data,
+    events_to_plot,
+    events_dict,
+    event,
+    event_config,
+    module,
+    date,
+    module_name,
 ):
+    """function used to add to log_data the log events and their timestamps if they match the config_file conditions.
+
+    Args:
+        log_data (dict): the data_structure where the logs that will be plotted are stored.
+        events_to_plot (dict): the different log events described in the plot_config that will be retrieved from log_file.
+        events_dict (_type_): _description_
+        event (str): the log's event name.
+        event_config (_type_): _description_
+        module (str): the name of the module source of the log.
+        date (date): the log's timestamp.
+        module_name (str): A shorter version of the module's name (for the plot).
+
+    Returns:
+        _type_: _description_
+    """
     boolean = events_dict is not None and event_config in events_dict
     if boolean:
         if event not in log_data["events"]:
             log_data["events"][event] = {"x_axis": [], "y_axis": []}
-            if "plot_settings" in events_to_log[module]["events"][event_config]:
-                log_data["events"][event]["plot_settings"] = events_to_log[module][
+            if "plot_settings" in events_to_plot[module]["events"][event_config]:
+                log_data["events"][event]["plot_settings"] = events_to_plot[module][
                     "events"
                 ][event_config]["plot_settings"]
         log_data["events"][event]["x_axis"].append(date)
@@ -460,35 +268,51 @@ def log_event(
     return log_data, boolean
 
 
-def plotting_run_3(
-    plot_config, logfile_path=None, plot_saving_path=None, module_order=None
+THREAD_ACTIVE = False
+REFRESHING_TIME = 1
+LOG_FILE_PATH = None
+PLOT_SAVING_PATH = None
+PLOT_CONFIG = None
+MODULE_ORDER = None
+
+
+def plot(
+    events_to_plot,
+    e_every_m,
+    log_file_path,
+    plot_saving_path,
+    module_order=None,
+    log_data={"events": {}},
+    pointer=0,
 ):
+    """function used to create a plot for a system run from the corresponding log file. Can be used to plot live or after the execution.
+
+    Args:
+        events_to_plot (dict): the different log events described in the plot_config that will be retrieved from log_file.
+        e_every_m (dict): the log events that will be retrieved for every module.
+        log_file_path (str, optional): path to the folder corresponding to the desired run to plot. Defaults to None.
+        plot_saving_path (str, optional): path to the folder where the plot will be saved. Defaults to None.
+        terminal_logger (TerminalLogger, optional): The structlog logger that outputs log through terminal. Defaults to TerminalLogger().
+        module_order (list[str], optional): Custom order of the modules in the final plot (first in the list is the lowest on the plot). Defaults to None
+        log_data (dict, optional): If called from the plot_live function, used to store current log_file logs and only retrieve new logs at each loop of live plotting. Defaults to {"events": {}}.
+        pointer (int, optional): If called from the plot_live function, used to only retrieve new logs at each loop of live plotting (logs whose line if greater than pointer). Defaults to 0.
+        plot_config (str): the path to the plot configuration file.
+
+
+    Returns:
+        _type_: _description_
+    """
+    nb_pb_line = 0
     terminal_logger = TerminalLogger()
 
-    if logfile_path is None or plot_saving_path is None:
-        subfolders = [f.path for f in os.scandir("logs/") if f.is_dir()]
-        max_run = max(subfolders, key=extract_number)
-        logfile_path = max_run + "/logs.log"
-        plot_saving_path = "run_plots/" + max_run.split("/")[-1]
-
-    if plot_config is None:
-        raise NotImplementedError
-    else:
-        with open(plot_config, encoding="utf-8") as f:
-            events_to_log = json.load(f)
-
-    e_every_m = None
-    if "any_module" in events_to_log and "events" in events_to_log["any_module"]:
-        e_every_m = events_to_log["any_module"]["events"]
-
-    log_data = {"events": {}}
-
-    nb_pb_line = 0
-
-    with open(logfile_path, encoding="utf-8") as f:
+    with open(log_file_path, encoding="utf-8") as f:
         lines = f.readlines()
+        new_pointer = len(lines)
+        lines = lines[pointer:]
+        pointer = new_pointer
 
-    for i, l in enumerate(lines):
+    # Retrieve logs : store data from log_file to log_data if it is registered in plot_config (events_to_plot)
+    for l in lines:
         try:
             log = json.loads(l)
 
@@ -504,13 +328,13 @@ def plotting_run_3(
 
             # log from event, from most specific to least specific
             e_that_m = None
-            if m_name in events_to_log and "events" in events_to_log[m_name]:
-                e_that_m = events_to_log[m_name]["events"]
+            if m_name in events_to_plot and "events" in events_to_plot[m_name]:
+                e_that_m = events_to_plot[m_name]["events"]
 
             # if we specified in the config to log specific event from specific module
             log_data, b = log_event(
                 log_data,
-                events_to_log,
+                events_to_plot,
                 e_that_m,
                 module_name + "_" + e_name,
                 e_name,
@@ -524,7 +348,7 @@ def plotting_run_3(
             # if we specified in the config to log specific event from any module
             log_data, b = log_event(
                 log_data,
-                events_to_log,
+                events_to_plot,
                 e_every_m,
                 e_name,
                 e_name,
@@ -538,7 +362,7 @@ def plotting_run_3(
             # if we specified in the config to log any event from specific module
             log_data, b = log_event(
                 log_data,
-                events_to_log,
+                events_to_plot,
                 e_that_m,
                 "other_events_" + module_name,
                 "any_event",
@@ -552,7 +376,7 @@ def plotting_run_3(
             # if we specified in the config to log any event from any module
             log_data, b = log_event(
                 log_data,
-                events_to_log,
+                events_to_plot,
                 e_every_m,
                 "other_events",
                 "any_event",
@@ -564,8 +388,8 @@ def plotting_run_3(
         except Exception:
             nb_pb_line += 1
 
+    # put all events data in the plot
     _, ax = plt.subplots(figsize=(10, 5))
-    # log from events, we could enhance this by logging from other data (timestamps, etc)
     try:
         for e_name, e_dict in log_data["events"].items():
             x = e_dict["x_axis"]
@@ -600,367 +424,86 @@ def plotting_run_3(
     except Exception:
         terminal_logger.exception()
 
+    # create and save the plot
     ax.grid(True)
     ax.legend(fontsize="7", loc="center left")
     plt.gca().xaxis.set_major_formatter(matplotlib.dates.DateFormatter("%H:%M:%S.%f"))
     plt.xticks(fontsize=7)
-
-    # saving the plot
-    if not os.path.isdir(plot_saving_path):
-        os.makedirs(plot_saving_path)
     plot_filename = plot_saving_path + "/plot_IU_exchange.png"
     plt.savefig(plot_filename, dpi=200, bbox_inches="tight")
-
     plt.close()
 
-
-def get_latency(logfile_path=None):
-    if logfile_path is None:
-        subfolders = [f.path for f in os.scandir("logs/") if f.is_dir()]
-        max_run = max(subfolders, key=extract_number)
-        logfile_path = max_run + "/logs.log"
-    nb_pb_line = 0
-
-    # get all append UM messages per module
-    with open(logfile_path, encoding="utf-8") as f:
-        lines = f.readlines()
-        messages_per_module = {}
-        for i, l in enumerate(lines):
-            try:
-                log = json.loads(l)
-                if log["event"] == "append UM":
-                    date = datetime.datetime.fromisoformat(log["timestamp"])
-                    if log["module"] not in messages_per_module:
-                        messages_per_module[log["module"]] = [date]
-                    else:
-                        messages_per_module[log["module"]].append(date)
-            except Exception:
-                nb_pb_line += 1
-
-    # filter to find the first and last append UM of each turn
-    first_and_last_per_module = {}
-    for module, dates in messages_per_module.items():
-        first_and_last_per_module[module] = [[], []]
-        # last append UM per turn per module
-        for i, message_date in enumerate(dates):
-            if i != len(dates) - 1:
-                # print(f"dates : {message_date} , {dates[i + 1]}")
-                # print(f"dates sub : {dates[i + 1] - message_date}")
-                # print(f"dates sub : {(dates[i + 1] - message_date).total_seconds()}")
-                if (dates[i + 1] - message_date).total_seconds() > 1.2:
-                    first_and_last_per_module[module][1].append(message_date)
-            else:
-                first_and_last_per_module[module][1].append(message_date)
-        # first append UM per turn per module
-        for i, message_date in enumerate(dates):
-            if i != 0:
-                # print(f"dates : {message_date} , {dates[i - 1]}")
-                # print(f"dates sub : {message_date - dates[i - 1]}")
-                # print(f"dates sub : {(message_date - dates[i - 1]).total_seconds()}")
-                if (message_date - dates[i - 1]).total_seconds() > 1.2:
-                    first_and_last_per_module[module][0].append(message_date)
-            else:
-                first_and_last_per_module[module][0].append(message_date)
-
-    print(
-        f"first_and_last_per_module = {[(len(v[0]), len(v[1])) for k,v in first_and_last_per_module.items()]}",
-    )
-    # print("first_and_last_per_module = ", first_and_last_per_module)
-    modules = [(key, value) for key, value in first_and_last_per_module.items()]
-    last_module = modules[0][0]
-    modules = modules[1:]
-    for module, dates in modules:
-        firsts = dates[0]
-        for i, fdate in enumerate(firsts):
-            # get last date from previous module in pipeline
-            previous_dates_from_previous_module = [
-                date
-                for date in first_and_last_per_module[last_module][0]
-                if date < fdate
-            ]
-
-            latency = (fdate - max(previous_dates_from_previous_module)).total_seconds()
-            print(f"latency {module}, {latency}")
-
-        last_module = module
+    return log_data, pointer
 
 
-def test_pandas(logfile_path=None):
-    if logfile_path is None:
-        subfolders = [f.path for f in os.scandir("logs/") if f.is_dir()]
-        max_run = max(subfolders, key=extract_number)
-        logfile_path = max_run + "/logs.log"
-    with open(logfile_path, encoding="utf-8") as f:
-        lines = f.readlines()
-        lines_json = []
-        for _, l in enumerate(lines):
-            try:
-                lines_json.append(json.loads(l))
-            except Exception:
-                pass
-    df = pd.DataFrame(lines_json)
-    print(df)
-    print(df[df["module"] == "Microphone Module"])
-
-
-def pandas_latency(logfile_path=None):
-    if logfile_path is None:
-        subfolders = [f.path for f in os.scandir("logs/") if f.is_dir()]
-        max_run = max(subfolders, key=extract_number)
-        logfile_path = max_run + "/logs.log"
-    with open(logfile_path, encoding="utf-8") as f:
-        lines = f.readlines()
-        lines_json = []
-        for i, l in enumerate(lines):
-            try:
-                line = json.loads(l)
-                line["timestamp"] = datetime.datetime.fromisoformat(line["timestamp"])
-                lines_json.append(line)
-            except Exception:
-                pass
-
-    df = pd.DataFrame(lines_json)
-
-    # GET ALL TIMESTAMP FOR SPEAKERS APPEND MSG (EOT timestamps)
-    spk_msgs = df[df["module"] == "Speaker Interruption Module"]
-    append_spk_msgs = spk_msgs[spk_msgs["event"] == "append UM"]
-    append_spk_msgs = append_spk_msgs.drop_duplicates(subset=["timestamp"])
-    print(append_spk_msgs)
-    EOT_timestamps = append_spk_msgs["timestamp"]
-    print(EOT_timestamps)
-
-    # GET ALL TIMESTAMP FOR VAD APPEND MSG (BOT timestamps)
-    vad_msgs = df[df["module"] == "VADTurn Module"]
-    append_vad_msgs = vad_msgs[vad_msgs["event"] == "append UM"]
-    BOT_append_vad_msgs = append_vad_msgs[
-        append_vad_msgs["timestamp"].diff().gt(pd.Timedelta("0.1 s"))
-    ]
-    first_BOT = append_vad_msgs.iloc[[0]]
-    BOTs = pd.concat([first_BOT, BOT_append_vad_msgs])
-    print(BOTs)
-    BOT_timestamps = BOTs["timestamp"]
-    print(BOT_timestamps)
-
-    # trying to have turns as tuple (BOT_timestamps, EOT_timestapms) but not easy iwith pandas.
-    # BOT_timestamps_f = BOT_timestamps.to_frame()
-    # EOT_timestamps_f = EOT_timestamps.to_frame()
-    # print(BOT_timestamps_f)
-    # print(EOT_timestamps_f)
-    # print(EOT_timestamps_f.columns.intersection(EOT_timestamps_f.columns))
-    # Turns_timestamps = BOT_timestamps_f.join(
-    #     EOT_timestamps, lsuffix="_BOT", rsuffix="_EOT"
-    # )
-    # print(Turns_timestamps)
-
-    # check that BOT and EOT have same length
-    assert BOT_timestamps.size == EOT_timestamps.size
-
-    # get each module's first append UM of each turn
-    append_msgs = df[df["event"] == "append UM"]
-    for turn_id in range(BOT_timestamps.size):
-        print("Turn ", turn_id)
-        bot = BOT_timestamps.iloc[turn_id]
-        eot = EOT_timestamps.iloc[turn_id]
-        # print(BOT)
-        # print(EOT)
-        # print(append_msgs["timestamp"])
-        append_msgs_turn_i = append_msgs[
-            (append_msgs["timestamp"] >= bot) & (append_msgs["timestamp"] <= eot)
-        ]
-        # print(append_msgs_turn_i["timestamp"])
-
-        #
-        print("first and last append Um of each module")
-        turn_i_per_module = append_msgs_turn_i.groupby("module")
-        turn_i_per_module_first = turn_i_per_module["timestamp"].min()
-        turn_i_per_module_last = turn_i_per_module["timestamp"].max()
-        # print(turn_i_per_module)
-        print(turn_i_per_module_first)
-        print(turn_i_per_module_last)
-
-        # TODO: calculate the latency between each module's first append UM message
-        pipeline = [
-            "Microphone Module",
-            "VADTurn Module",
-            "WhisperASR Module",
-            "LlamaCppMemoryIncremental Module",
-            "CoquiTTS Module",
-            "Speaker Interruption Module",
-        ]
-        for i, module in enumerate(pipeline[1:]):
-            piepline_diff = (
-                turn_i_per_module_first[module]
-                - turn_i_per_module_first[pipeline[i - 1]]
-            )
-            print(piepline_diff)
-
-
-def pandas_latency_2(logfile_path=None):
-    if logfile_path is None:
-        subfolders = [f.path for f in os.scandir("logs/") if f.is_dir()]
-        max_run = max(subfolders, key=extract_number)
-        logfile_path = max_run + "/logs.log"
-    with open(logfile_path, encoding="utf-8") as f:
-        lines = f.readlines()
-        lines_json = []
-        for i, l in enumerate(lines):
-            try:
-                line = json.loads(l)
-                line["timestamp"] = datetime.datetime.fromisoformat(line["timestamp"])
-                lines_json.append(line)
-            except Exception:
-                pass
-
-    df = pd.DataFrame(lines_json)
-
-    # Get user BOTs & EOTs
-    user_BOTs = df[df["event"] == "user_BOT"]  # 12, 2, div/6
-    user_EOTs = df[df["event"] == "user_EOT"]  # 30, 5, div/6
-    agent_BOTs = user_EOTs  # 30, 5, div/6
-    agent_EOTs = df[df["event"] == "agent_EOT"]  # 12, 2, div/6
-    interruptions = df[df["event"] == "interruption"]  # 36, 6, div/6
-    user_BARGE_IN = interruptions[
-        interruptions["module"] == "VADTurn Module"
-    ]  # 18, 3, div/6
-    user_TOT_BOTs = pd.concat([user_BOTs, user_BARGE_IN])  # 30, 5, div/6
-    agent_TOT_EOTs = pd.concat([agent_EOTs, user_BARGE_IN])  # 30, 5, div/6
-    user_TOT_BOTs = user_TOT_BOTs.sort_values(by=["timestamp"])
-    agent_TOT_EOTs = agent_TOT_EOTs.sort_values(by=["timestamp"])
-    user_BOTs = user_BOTs.drop_duplicates()
-    user_EOTs = user_EOTs.drop_duplicates()
-    agent_BOTs = agent_BOTs.drop_duplicates()
-    agent_EOTs = agent_EOTs.drop_duplicates()
-    interruptions = interruptions.drop_duplicates()
-    user_BARGE_IN = user_BARGE_IN.drop_duplicates()
-    user_TOT_BOTs = user_TOT_BOTs.drop_duplicates()
-    agent_TOT_EOTs = agent_TOT_EOTs.drop_duplicates()
-    speaker_outputs = df[df["event"] == "output_audio"].drop_duplicates()
-
-    append_msgs = df[df["event"] == "append UM"]
-    pipeline = [
-        "Microphone Module",
-        "VADTurn Module",
-        "WhisperASR Module",
-        "LlamaCppMemoryIncremental Module",
-        "CoquiTTS Module",
-        "Speaker Interruption Module",
-    ]
-    for turn_id in range(user_TOT_BOTs["timestamp"].size):
-
-        try:
-            #######
-            # Calculate the user and agent BOT and EOT and the timestamp of the first agent audio output
-            ######
-            user_BOT = user_TOT_BOTs.iloc[turn_id]["timestamp"]
-            if turn_id < user_TOT_BOTs["timestamp"].size - 1:
-                user_EOT = user_EOTs[
-                    (user_EOTs["timestamp"] >= user_BOT)
-                    & (
-                        user_EOTs["timestamp"]
-                        <= user_TOT_BOTs.iloc[turn_id + 1]["timestamp"]
-                    )
-                ]
-                user_EOT = max(user_EOT["timestamp"])
-                agent_EOT = agent_TOT_EOTs[
-                    (agent_TOT_EOTs["timestamp"] >= user_BOT)
-                    & (
-                        agent_TOT_EOTs["timestamp"]
-                        <= user_TOT_BOTs.iloc[turn_id + 1]["timestamp"]
-                    )
-                ]
-                agent_EOT = max(agent_EOT["timestamp"])
-                speaker_first_output = speaker_outputs[
-                    (speaker_outputs["timestamp"] >= user_BOT)
-                    & (
-                        speaker_outputs["timestamp"]
-                        <= user_TOT_BOTs.iloc[turn_id + 1]["timestamp"]
-                    )
-                ]
-                speaker_first_output = min(speaker_first_output["timestamp"])
-            else:
-                speaker_first_output = speaker_outputs[
-                    speaker_outputs["timestamp"] >= user_BOT
-                ]
-                speaker_first_output = min(speaker_first_output["timestamp"])
-                user_EOT = max(user_EOTs["timestamp"])
-                agent_EOT = max(agent_TOT_EOTs["timestamp"])
-
-            print(f"\n\nTURN {turn_id} : ")
-            print(f"{'user BOT :'.ljust(25, ' ')} {user_BOT}")
-            print(f"{'user EOT / agent BOT :'.ljust(25, ' ')} {user_EOT}")
-            print(f"{'agent first output :'.ljust(25, ' ')} {speaker_first_output}")
-            print(f"{'agent EOT :'.ljust(25, ' ')} {agent_EOT}\n")
-
-            #######
-            # Print the timestamp of the first data output for each module
-            #######
-            if turn_id < user_TOT_BOTs["timestamp"].size - 1:
-                append_msgs_turn = append_msgs[
-                    (append_msgs["timestamp"] >= user_EOT)
-                    & (append_msgs["timestamp"] <= agent_EOT)
-                ]
-            else:
-                append_msgs_turn = append_msgs[append_msgs["timestamp"] >= user_EOT]
-            append_msgs_turn_module = append_msgs_turn.groupby("module")
-            append_msgs_turn_module_BOT = append_msgs_turn_module["timestamp"].min()
-            append_msgs_turn_module_BOT = (
-                append_msgs_turn_module_BOT.to_frame().sort_values(by="timestamp")
-            )
-
-            # Changing the values for Microphone Module and Speaker Module because they are logged differently
-            append_msgs_turn_module_BOT.loc[
-                "Speaker Interruption Module", "timestamp"
-            ] = speaker_first_output
-            append_msgs_turn_module_BOT.loc["Microphone Module", "timestamp"] = user_EOT
-            print(f"Timestamp first data append : \n{append_msgs_turn_module_BOT}\n")
-
-            append_msgs_turn_module_BOT = append_msgs_turn_module_BOT
-
-            #######
-            # Calculate the EXEC TIME of each module at each turn of the dialogue
-            # (EXEC TIME = the time for each module between receiving the first data and outputting the first data)
-            # the sum of the EXEC TIME of all modules = the answering latency of the system
-            ######
-            total_exec_time = pd.Timedelta(0)
-            start_id = 1
-            for i, module in enumerate(pipeline[start_id:]):
-                pipeline_diff = (
-                    append_msgs_turn_module_BOT.loc[module, "timestamp"]
-                    - append_msgs_turn_module_BOT.loc[
-                        pipeline[i + start_id - 1], "timestamp"
-                    ]
-                )
-                total_exec_time += pipeline_diff
-                print(f"EXEC TIME   {module.ljust(40, ' ')} {pipeline_diff}")
-
-            print(f"\nTOTAL EXEC TIME   {str(total_exec_time).ljust(40, ' ')}")
-            print(
-                f"TOTAL EXEC TIME   {str(speaker_first_output-user_EOT).ljust(40, ' ')}"
-            )
-
-        except ValueError:
-            print(
-                "Turns where the user interrupted the agent before the agent had time to speak are not interesting for now"
-            )
-
-
-THREAD_ACTIVE = False
-REFRESHING_TIME = 1
-LOG_FILE_PATH = None
-PLOT_SAVING_PATH = None
-PLOT_CONFIG = None
-MODULE_ORDER = None
-
-
-def plot_live():
+def plot_live(module_order=None):
     """a looping function that creates a plot from the current run's log_file each `REFRESHING_TIME` seconds (if it's the biggest number in your `logs` folder)"""
+    global LOG_FILE_PATH, PLOT_SAVING_PATH
+
+    if LOG_FILE_PATH is None or PLOT_SAVING_PATH is None:
+        subfolders = [f.path for f in os.scandir("logs/") if f.is_dir()]
+        max_run = max(subfolders, key=extract_number)
+        LOG_FILE_PATH = max_run + "/logs.log"
+        PLOT_SAVING_PATH = "run_plots/" + max_run.split("/")[-1]
+        if not os.path.isdir(PLOT_SAVING_PATH):
+            os.makedirs(PLOT_SAVING_PATH)
+
+    if PLOT_CONFIG is None:
+        raise NotImplementedError
+    else:
+        with open(PLOT_CONFIG, encoding="utf-8") as f:
+            events_to_plot = json.load(f)
+
+    e_every_m = None
+    if "any_module" in events_to_plot and "events" in events_to_plot["any_module"]:
+        e_every_m = events_to_plot["any_module"]["events"]
+
+    log_data = {"events": {}}
+    pointer = 0
+
     while THREAD_ACTIVE:
-        plotting_run_3(
-            plot_config=PLOT_CONFIG,
-            logfile_path=LOG_FILE_PATH,
-            plot_saving_path=PLOT_SAVING_PATH,
-        )
         time.sleep(REFRESHING_TIME)
+        log_data, pointer = plot(
+            events_to_plot=events_to_plot,
+            e_every_m=e_every_m,
+            log_file_path=LOG_FILE_PATH,
+            plot_saving_path=PLOT_SAVING_PATH,
+            module_order=module_order,
+            log_data=log_data,
+            pointer=pointer,
+        )
+
+
+def plot_once(
+    plot_config, log_file_path=None, plot_saving_path=None, module_order=None
+):
+    """Create a plot for a previous system run from the corresponding log file.
+
+    Args:
+        plot_config (str): the path to the plot configuration file.
+        log_file_path (str, optional): path to the folder corresponding to the desired run to plot. Defaults to None.
+        plot_saving_path (str, optional): path to the folder where the plot will be saved. Defaults to None.
+        module_order (list[str], optional): Custom order of the modules in the final plot (first in the list is the lowest on the plot). Defaults to None.
+    """
+    if log_file_path is None or plot_saving_path is None:
+        subfolders = [f.path for f in os.scandir("logs/") if f.is_dir()]
+        max_run = max(subfolders, key=extract_number)
+        log_file_path = max_run + "/logs.log"
+        plot_saving_path = "run_plots/" + max_run.split("/")[-1]
+        if not os.path.isdir(plot_saving_path):
+            os.makedirs(plot_saving_path)
+    with open(plot_config, encoding="utf-8") as f:
+        events_to_plot = json.load(f)
+    e_every_m = None
+    if "any_module" in events_to_plot and "events" in events_to_plot["any_module"]:
+        e_every_m = events_to_plot["any_module"]["events"]
+    plot(
+        log_file_path=log_file_path,
+        plot_saving_path=plot_saving_path,
+        events_to_plot=events_to_plot,
+        e_every_m=e_every_m,
+        module_order=module_order,
+    )
 
 
 def setup_plot_live():
@@ -975,7 +518,7 @@ def stop_plot_live():
 
 
 def configurate_plot(
-    plot_live=False,
+    is_plot_live=False,
     refreshing_time=1,
     logfile_path=None,
     plot_saving_path=None,
@@ -990,7 +533,7 @@ def configurate_plot(
         refreshing_time (int, optional): The refreshing time (in seconds) between two creation of plots when `plot_live` is set to `True`. Defaults to 1.
     """
     global THREAD_ACTIVE, REFRESHING_TIME, LOG_FILE_PATH, PLOT_SAVING_PATH, PLOT_CONFIG, MODULE_ORDER
-    THREAD_ACTIVE = plot_live
+    THREAD_ACTIVE = is_plot_live
     REFRESHING_TIME = refreshing_time
     PLOT_CONFIG = plot_config
     LOG_FILE_PATH = logfile_path
@@ -999,21 +542,7 @@ def configurate_plot(
 
 
 if __name__ == "__main__":
-
-    # test_structlog()
-    # test_plot()
-    # logfile_path = "logs/run_1/logs.log"
-    # plot_saving_path = "run_plots/run_1"
-    # plotting_run(logfile_path, plot_saving_path)
-
-    # plotting_run()
-    # plotting_run_2()
-
-    # threading.Thread(target=plot_live).start()
-    # input()
-    # THREAD_ACTIVE = False
-
-    module_order = [
+    m_order = [
         "Microphone",
         "VAD",
         "DialogueManager",
@@ -1022,8 +551,4 @@ if __name__ == "__main__":
         "TTS",
         "Speaker",
     ]
-    plotting_run_3("plot_config_3.json", module_order=module_order)
-    # get_latency()
-
-    # pandas_latency()
-    # pandas_latency_2()
+    plot_once("plot_config_3.json", module_order=m_order)

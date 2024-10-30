@@ -804,6 +804,7 @@ class AbstractModule:
                                             self.name(), viu
                                         ),
                                         iu_type=viu,
+                                        creator=update_message._msgs[0][0].creator,
                                     )
                                     self.found_invalid_ius.append(viu)
                                 continue
