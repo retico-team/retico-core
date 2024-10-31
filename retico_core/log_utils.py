@@ -284,6 +284,7 @@ def plot(
     module_order=None,
     log_data={"events": {}},
     pointer=0,
+    window_duration=None,
 ):
     """function used to create a plot for a system run from the corresponding log file. Can be used to plot live or after the execution.
 
@@ -427,8 +428,20 @@ def plot(
     # create and save the plot
     ax.grid(True)
     ax.legend(fontsize="7", loc="center left")
-    plt.gca().xaxis.set_major_formatter(matplotlib.dates.DateFormatter("%H:%M:%S.%f"))
+    # plt.gca().xaxis.set_major_formatter(matplotlib.dates.DateFormatter("%H:%M:%S.%f"))
+    plt.gca().xaxis.set_major_formatter(matplotlib.dates.DateFormatter("%M:%S"))
     plt.xticks(fontsize=7)
+    #
+    if window_duration is not None:
+        last_date = datetime.datetime.fromisoformat(json.loads(lines[-1])["timestamp"])
+        padding = 5
+        end_window = last_date + datetime.timedelta(seconds=last_date.second % padding)
+        start_window = end_window - datetime.timedelta(seconds=window_duration)
+        ax.set_xlim(left=start_window, right=end_window)
+    #
+    # ax.xaxis.set_major_locator(mdates.SecondLocator(interval=10))
+    ax.xaxis.set_major_locator(mdates.SecondLocator(bysecond=(range(0, 61, 5))))
+    ax.xaxis.set_minor_locator(mdates.SecondLocator(bysecond=(range(0, 61, 1))))
     plot_filename = plot_saving_path + "/plot_IU_exchange.png"
     plt.savefig(plot_filename, dpi=200, bbox_inches="tight")
     plt.close()
@@ -471,6 +484,7 @@ def plot_live(module_order=None):
             module_order=module_order,
             log_data=log_data,
             pointer=pointer,
+            window_duration=WINDOW,
         )
 
 
@@ -524,6 +538,7 @@ def configurate_plot(
     plot_saving_path=None,
     plot_config=None,
     module_order=None,
+    window_dur=None,
 ):
     """A function that configures the global parameters `THREAD_ACTIVE` and `REFRESHING_TIME`.
     These two parameters will be used by the `plot_live` function to create a plot from the current run's log_file in real time.
@@ -532,13 +547,14 @@ def configurate_plot(
         plot_live (bool, optional): If set to True, a plot from the current run's log_file will be created in real time. If set to False, it will only be created at the end of the run. Defaults to False.
         refreshing_time (int, optional): The refreshing time (in seconds) between two creation of plots when `plot_live` is set to `True`. Defaults to 1.
     """
-    global THREAD_ACTIVE, REFRESHING_TIME, LOG_FILE_PATH, PLOT_SAVING_PATH, PLOT_CONFIG, MODULE_ORDER
+    global THREAD_ACTIVE, REFRESHING_TIME, LOG_FILE_PATH, PLOT_SAVING_PATH, PLOT_CONFIG, MODULE_ORDER, WINDOW
     THREAD_ACTIVE = is_plot_live
     REFRESHING_TIME = refreshing_time
     PLOT_CONFIG = plot_config
     LOG_FILE_PATH = logfile_path
     PLOT_SAVING_PATH = plot_saving_path
     MODULE_ORDER = module_order
+    WINDOW = window_dur
 
 
 if __name__ == "__main__":
