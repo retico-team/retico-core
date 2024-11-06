@@ -22,6 +22,7 @@ This documentation assumes that you have basic knowledge about `Incremental Dial
 
    gettingstarted
    basics
+   logs
    tutorial
    retico_core
 

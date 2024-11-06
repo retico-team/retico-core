@@ -1,6 +1,6 @@
 """
 Log Utils Module
-===========
+================
 
 This file defines the classes and functions of a new logging system for retico, which provides
 retico modules with the capacity to create structured (dictionary) log messages that they can either
@@ -21,9 +21,9 @@ from pathlib import Path
 import re
 import threading
 import time
+import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
-import matplotlib
 import numpy as np
 import structlog
 
@@ -284,7 +284,7 @@ def filter_cases(_, __, event_dict, cases):
 
     Example :
     cases = [[("module":["Micro"]), ("event":["create_iu", "append UM"])],
-            [("module":["Speaker"]), ("event":["create_iu"])]]
+    [("module":["Speaker"]), ("event":["create_iu"])]]
     Meaning of the cases :
     KEEP IF ((module is "Microphone Module" AND event is in ["create_iu", "append UM"])
     OR (module is "Speaker Module" AND event is "append UM"))

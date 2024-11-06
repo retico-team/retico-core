@@ -1,6 +1,9 @@
 # retico-core
 
-[![Documentation Status](https://readthedocs.org/projects/retico-core/badge/?version=latest)](https://retico-core.readthedocs.io/en/latest/?badge=latest)
+[![Documentation Status](https://readthedocs.org/projects/retico-core-sos/badge/?version=latest)](https://retico-core-sos.readthedocs.io/en/latest/?badge=latest)
+
+This is a fork from retico team's retico-core, adding **logging** and **plotting** to the core system.
+For more information, you can go to the **Logging** page of the documentation : [https://retico-core-sos.readthedocs.io/en/latest/logs.html](https://retico-core-sos.readthedocs.io/en/latest/logs.html)
 
 This project includes the core functionality of the retico framework. This includes the
 abstract, general definitions of incremental modules and incremental units (IUs), as
@@ -22,5 +25,4 @@ $ pip install retico-core
 ```
 
 ## Documentation
-
-The documentation of retico-core can be found at [https://retico-core.readthedocs.io/](https://retico-core.readthedocs.io/)
+The documentation of retico-core can be found at [https://retico-core-sos.readthedocs.io/](https://retico-core-sos.readthedocs.io/)

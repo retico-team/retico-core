@@ -46,6 +46,18 @@ Submodules
    :show-inheritance:
 
 
+.. automodule:: retico_core.log_utils
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+
+.. automodule:: retico_core.utils
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+
 .. automodule:: retico_core.version
    :members:
    :undoc-members:

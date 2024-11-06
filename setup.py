@@ -36,11 +36,9 @@ config = {
     "install_requires": [
         "pyaudio>=0.2.12",
         "torch",
-        "keyboard",
         "structlog",
         "colorama",
         "matplotlib",
-        "pandas",
     ],
     "packages": find_packages(),
     "name": "retico-core",
