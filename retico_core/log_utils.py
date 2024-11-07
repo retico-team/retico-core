@@ -451,7 +451,8 @@ def plot(
 
             date = datetime.datetime.fromisoformat(log["timestamp"])
             date_plt = mdates.date2num(date)
-            module_name_for_plot = " ".join(module_name.split()[:1])
+            module_name_for_plot = module_name.split(maxsplit=1)[0]
+            # module_name_for_plot = " ".join(module_name.split()[:1])
 
             # log from event, from most specific to least specific
             events_specific_module = None
@@ -688,7 +689,7 @@ def configurate_plot(
     log_file_path=None,
     plot_saving_path=None,
     module_order=None,
-    window_duration=None,
+    window_duration=5,
 ):
     """A function that configures the global parameters related to plot configuration.
     These global parameters will be used by the `plot_live` function to create a plot from
@@ -708,7 +709,7 @@ def configurate_plot(
         module_order (list[str], optional): Custom order of the modules in the final plot (first in
             the list is the lowest on the plot). Defaults to None.
         window_duration (int, optional): a fixed time window (in seconds) preceding the current time
-            which defines all the logs that will be used for the real-time plot. Defaults to None.
+            which defines all the logs that will be used for the real-time plot. Defaults to 5.
     """
     global THREAD_ACTIVE, REFRESHING_TIME, LOG_FILE_PATH, PLOT_SAVING_PATH, PLOT_CONFIG_PATH
     global MODULE_ORDER, WINDOW_DURATION
@@ -725,10 +726,9 @@ if __name__ == "__main__":
     m_order = [
         "Microphone",
         "VAD",
-        "DialogueManager",
-        "WhisperASR",
+        "ASR",
         "LLM",
         "TTS",
         "Speaker",
     ]
-    plot_once("configs/plot_config_3.json", module_order=m_order)
+    plot_once("configs/plot_config_simple.json", module_order=m_order)

@@ -5,8 +5,8 @@ The new logging system uses the library [structlog](https://www.structlog.org/en
 ```python
 import structlog
 logger = structlog.get_logger()
-logger.info("hello, world!", some_data=[1, 2, 3])
->>> 2022-10-07 10:41:29 [info     ] hello, world!   some_data=[1, 2, 3]
+logger.info("hello, world", some_data=[1, 2, 3])
+>>> 2022-10-07 10:41:29 [info     ] hello, world   some_data=[1, 2, 3]
 ```
 
 ## Logger class
@@ -19,6 +19,8 @@ self.terminal_logger.info("process_update", some_data=[1, 2, 3])
 >>> 2022-10-07 10:41:29 [info     ] process_update   some_data=[1, 2, 3]
 ```
 
+### Default log message data
+
 Both loggers are configured so that every log message would have, by default, the following arguments : `timestamps`, `level` (the logging level), `event` (the string you give when you call the logger) and `module` (the module that produced the log message).
 
 Here is an example of the log message produced by calling the `info` function of `file_logger` from the `Module` class:
@@ -26,10 +28,12 @@ Here is an example of the log message produced by calling the `info` function of
 ```python
 # from the Module 1 class
 self.file_logger.info("process_update", some_data=[1, 2, 3])
->>> {"module": "M1", "event": "process_update", "level": "info", "timestamp": "2024-10-24T14:28:36.570572Z", "some_data"=[1, 2, 3]}
+>>> {"module": "Module 1", "event": "process_update", "level": "info", "timestamp": "2024-10-24T14:28:36.570572Z", "some_data"=[1, 2, 3]}
 ```
 
+```{note}
 The message presents a `module` attributes because it has been binded in the `__init__` of `AbstractModule` class (useful feature provided by `structlog`). Which means any call of `self.terminal_logger.info()` from `Module 1` will always have an argument `module="Module 1"`. You can bind any argument you want during your retico module's initialization.
+```
 
 ### Terminal Logger
 
@@ -54,7 +58,6 @@ The loggers are configured in `log_utils`, with the `configurate_logger` functio
 Example : Configuration that will filter all the `process_update` and `create_iu` events from `Module 1` :
 
 ```python
-
 filters = [partial(retico_core.log_utils.filter_value_in_list, "Module 1", ["process_update", "create_iu"])]
 
 # configure loggers
@@ -70,12 +73,11 @@ m1.subscribe(m2)
 m2.subscribe(m3)
 
 retico.network.run(m1)
-
 ```
 
 ## Configurate plotting
 
-The logging system comes alongside a plotting system that provides the system with a basic execution vizualization. The system can create a plot (using `matplotlib`) of the system's execution from the log messages stored in the log file.
+The logging system comes alongside a plotting system that provides the system with a basic execution vizualization. The system can create a plot (using `matplotlib`) of the system's execution from the log messages stored in the log file. This plot can be created either after the system's execution or in real time, the last option is presented in details in a section below.
 
 | ![Foo](img/plot_example.png) |
 |:--:|
@@ -96,7 +98,11 @@ retico_core.log_utils.configurate_plot(
 retico.network.run(m1)
 ```
 
-The configuration file (here `configs/plot_config.json`), is mandatory because it is used to specify which log message are retrieved from log file to create the plot. This configuration file is a JSON file, with a precise structure, where it is possible to specify every event from every module you want to plot.
+The configuration file (here `configs/plot_config.json`), is mandatory because it is used to specify which log message are retrieved from log file to create the plot. Which means that if you provide an empty json file, the resulting plot would also be empty. This configuration file is a JSON file, with a precise structure, where it is possible to specify every event from every module you want to plot.
+
+```{warning}
+The full module name (result of the module's `name()` function) has to be put in the configuration file, an exact macthing will be checked during the `plot()` function.
+```
 
 Example : Plot configuration where I want to plot all `process_update` and `create_iu` log messages from `Module 1`.
 
@@ -140,13 +146,17 @@ Here is an minimal example of the configuration file using these key words (it w
 
 ### Customize log message markers
 
-You can customize the markers attributes for each log message on your config (and it is recommended to do so for clarity).
+You can customize the markers attributes for each log message on your config (and it is recommended to do so for clarity). The following attributes will be used as arguments in the `matplotlib.plot()` calls.
 
 - `marker` : the marker you want to use for this log message.
 - `marker_color` : the marker color you want to use for this log message.
 - `marker_size` : the marker size you want to use for this log message.
 
-if no customization is given in the config, a general grey marker will be plotted.
+```{note}
+For more information, read `matplotlib` documentation : [matplotlib.plot() documentation](https://matplotlib.org/stable/api/_as_gen/matplotlib.axes.Axes.plot.html#matplotlib.axes.Axes.plot).
+```
+
+If no customization is given in the config (like it is below, for `create_iu` log messages from `any_module`), a general grey marker will be plotted.
 
 ```yaml
 {
@@ -195,10 +205,15 @@ Which means that in the above example, `process_update` log messages from `Modul
 
 ### Plotting in real time
 
-You can plot the system 's execution in real time by setting to `True` the `is_plot_live` parameter from `configurate_plot` function. A separate Thread will generate and save the system's execution plot every `n` seconds (if you have the plot file open in you IDE, it will be refreshed and you can monitor system's execution in real time), the duration can be modified by setting the `refreshing_time` parameter. You can chose to only plot the log messages from the last `m` seconds by setting the `windows_duration` parameter. It can be useful to vizualize only new log messages to analyze precise systems behaviors (without having the 2+ min old log messages). The `module_order` parameter can be set to customize and/or force the order of the Modules in the plot, the earliest in list, the lowest in the plot.
+As presented in the plotting section's introduction, you can configurate the plotting system to create plots in real time, i.e., as your retico system is running. If you do so, a separate thread will be instanciated, that will periodically load the log file, then generate and save a plot from the log messages.
+
+To configure the plotting system in real time, there is 3 parameters :
+
+- `is_plot_live` : by setting this parameter to True, you simply enables the plotting in real time.
+- `refreshing_time` : By default, a plot will be generated every `5` seconds, but you can modify this duration by setting `refreshing_time`, with the desired number of seconds between two generations.
+- `windows_duration` : You can chose to only plot the log messages from the last *m* seconds by setting the `windows_duration` parameter. It can be useful to vizualize only new log messages to analyze precise systems behaviors (without having the 2+ min old log messages).
 
 ```python
-
 # configure plot
 retico_core.log_utils.configurate_plot(
     is_plot_live=True,
@@ -209,5 +224,14 @@ retico_core.log_utils.configurate_plot(
 )
 
 retico.network.run(m1)
+```
 
+### Modules names in the plot
+
+Sometimes, the modules have a very long name (their name is the return value of the `name() function` and not the class name), which is not convenient if the full name is to be used as the x-axis value of our plot. The implementation choice that has been made is to only use the first word of the module's name as the x-axis value in the plot (the substring before the first space). So a module called `ASR Whisper Module` will be designated as `ASR` in the plot.
+
+If you want to fix the order of the modules names in the plot (vertical order of the modules), you can set the `module_order` parameter of `configurate_plot`, with a list of your modules names in the desired order, the earliest in list, the lowest in the plot.
+
+```{warning}
+Careful, the `module_order` list must contain only the first word of the name of the module (the substring before the first space). Example : a module with the name `ASR Whisper Module` must be designated as `ASR` in the `module_order` list to be sorted at the right place (in any other case, it will be ignored).
 ```
