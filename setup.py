@@ -16,11 +16,35 @@ except ImportError:
 
 exec(open("retico_core/version.py").read())
 
+import os
 import pathlib
+import platform
+import subprocess
 
 here = pathlib.Path(__file__).parent.resolve()
 
 long_description = (here / "README.md").read_text(encoding="utf-8")
+
+
+install_requires = [
+    # "pyaudio",
+    "structlog",
+    "colorama",
+    "matplotlib",
+]
+
+# Determine the operating system
+# print(f"System OS : {platform.system()}")
+# is_linux = platform.system().lower() == "linux"
+# if is_linux:
+#     # If Linux, attempt to install pyaudio via apt
+#     try:
+#         print(
+#             "Detected Linux OS. Installing portaudio via apt to make it possible to install pyaudio with pip afterwards"
+#         )
+#         subprocess.run(["apt", "install", "-y", "portaudio19-dev"], check=True)
+#     except Exception as e:
+#         print(f"Failed to install portaudio via apt: {e}")
 
 config = {
     "description": "A framework for real time incremental dialogue processing.",
@@ -33,13 +57,8 @@ config = {
     "version": __version__,
     "python_requires": ">=3.6, <4",
     "keywords": "retico, framework, incremental, dialogue, dialog",
-    "install_requires": [
-        "pyaudio>=0.2.12",
-        "torch",
-        "structlog",
-        "colorama",
-        "matplotlib",
-    ],
+    "install_requires": install_requires,
+    "extras_require": {"pyaudio": "pyaudio"},
     "packages": find_packages(),
     "name": "retico-core",
     "classifiers": [
