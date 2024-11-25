@@ -433,6 +433,14 @@ def plot(
 
     with open(log_file_path, encoding="utf-8") as f:
         lines = f.readlines()
+        first_line = lines[0]
+        last_line = lines[-1]
+        first_line_date = datetime.datetime.fromisoformat(
+            json.loads(first_line)["timestamp"]
+        )
+        last_line_date = datetime.datetime.fromisoformat(
+            json.loads(last_line)["timestamp"]
+        )
         new_pointer = len(lines)
         lines = lines[line_cpt:]
         line_cpt = new_pointer
@@ -555,18 +563,14 @@ def plot(
     # create and save the plot
     ax.grid(True)
     ax.legend(fontsize="7", loc="center left")
-    # plt.gca().xaxis.set_major_formatter(matplotlib.dates.DateFormatter("%H:%M:%S.%f"))
-    plt.gca().xaxis.set_major_formatter(matplotlib.dates.DateFormatter("%M:%S"))
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%M:%S"))
     plt.xticks(fontsize=7)
-    #
     if window_duration is not None:
         last_date = datetime.datetime.fromisoformat(json.loads(lines[-1])["timestamp"])
         padding = 5
         end_window = last_date + datetime.timedelta(seconds=last_date.second % padding)
         start_window = end_window - datetime.timedelta(seconds=window_duration)
         ax.set_xlim(left=start_window, right=end_window)
-    #
-    # ax.xaxis.set_major_locator(mdates.SecondLocator(interval=10))
     ax.xaxis.set_major_locator(mdates.SecondLocator(bysecond=range(0, 61, 5)))
     ax.xaxis.set_minor_locator(mdates.SecondLocator(bysecond=range(0, 61, 1)))
     plot_filename = plot_saving_path + "/plot_IU_exchange.png"
