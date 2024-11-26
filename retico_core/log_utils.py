@@ -118,7 +118,7 @@ def create_new_log_folder(log_folder):
     return filepath
 
 
-def configurate_logger(log_path="log/run", filters=None):
+def configurate_logger(log_path="logs/run", filters=None):
     """
     Configure structlog's logger and set general logging args (timestamps,
     log level, etc.)
@@ -366,8 +366,8 @@ def store_log(
         plot_config (dict): the plot_config contains the events that will be plotted, and their
             corresponding plot information.
         events (dict): dictionary containing all events to plot for that event.
-        event (str): the event name in log message.
-        module (str): the module name in log message.
+        event_name_in_config (str): the event name in log message.
+        module_name_in_config (str): the module name in log message.
         event_name_for_plot (str): the log's event name.
         module_name_for_plot (str): A shorter version of the module's name (for the plot).
         date (date): the log's timestamp.
@@ -376,8 +376,10 @@ def store_log(
         tuple[dict[],bool]: Returns the logs storing data structure, and a boolean that is True if
         the event has been stored, False if it hasn't.
     """
-    boolean = events is not None and event_name_in_config in events
-    if boolean:
+    is_event_in_config = events is not None and event_name_in_config in events
+    if is_event_in_config and not (
+        "exclude" in plot_config[module_name_in_config]["events"][event_name_in_config]
+    ):
         if event_name_for_plot not in log_data["events"]:
             log_data["events"][event_name_for_plot] = {"x_axis": [], "y_axis": []}
             if (
@@ -389,7 +391,7 @@ def store_log(
                 ]["events"][event_name_in_config]["plot_settings"]
         log_data["events"][event_name_for_plot]["y_axis"].append(module_name_for_plot)
         log_data["events"][event_name_for_plot]["x_axis"].append(date)
-    return log_data, boolean
+    return log_data, is_event_in_config
 
 
 def plot(
@@ -522,14 +524,46 @@ def plot(
             )
 
         except Exception:
+            terminal_logger.exception("exception store log")
             nb_pb_line += 1
 
     # put all events data in the plot
     _, ax = plt.subplots(figsize=(10, 5))
     try:
-        for event_name, event_data in log_data["events"].items():
+        # reorder from config
+        labels = log_data["events"].keys()
+        # module_order_2 = [m for m in plot_config.items()]
+        plot_config_order_2 = []
+        for m, mdata in plot_config.items():
+            mname = m.split(" ")[0] if m != "any_module" else ""
+            for e, edata in mdata["events"].items():
+                ename = e if e != "any_event" else "other_events"
+                if "exclude" not in edata:
+                    for ee in log_data["events"]:
+                        print(f"{ee}, {ename}, {mname}")
+                        if mname in ee and ename in ee:
+                            plot_config_order_2.append(ee)
+        print(f"plot_config_order {plot_config_order_2} {labels}")
+        plot_config_order = [
+            [e for e, edata in mdata["events"].items() if "exclude" not in edata]
+            for m, mdata in plot_config.items()
+        ]
+        print(f"plot_config_order {plot_config_order} {labels}")
+        total_order = sum(plot_config_order, [])
+        print(total_order)
+        # reordered_indices = np.concatenate(
+        #     [np.where(log_data["events"] == o)[0] for o in plot_config_order]
+        # )
+        # x = x_np[reordered_indices]
+        # y = y_np[reordered_indices]
+        # for eorder in plot_config_order:
+
+        # for event_name, event_data in log_data["events"].items():
+        for e in plot_config_order_2[::-1]:
+            event_name, event_data = e, log_data["events"][e]
             x = event_data["x_axis"]
             y = event_data["y_axis"]
+
             # re-order if the module_order parameter is set
             if module_order is not None:
                 x_np = np.array(event_data["x_axis"])
@@ -539,6 +573,7 @@ def plot(
                 )
                 x = x_np[reordered_indices]
                 y = y_np[reordered_indices]
+
             if "plot_settings" in event_data:
                 ax.plot(
                     x,
@@ -560,19 +595,40 @@ def plot(
     except Exception:
         terminal_logger.exception()
 
-    # create and save the plot
-    ax.grid(True)
+    ## create and save the plot
+
+    # legend
     ax.legend(fontsize="7", loc="center left")
+    handles, labels = plt.gca().get_legend_handles_labels()
+    print(f"legend {handles}, {labels}")
+    legend_order = []
+    legend_order.extend(
+        [k if k != "any_event" else "other_events" for k in events_all_modules.keys()]
+    )
+    if module_order is not None:
+        for m_id in range(len(module_order)):
+            for l in labels:
+                if module_order[-m_id] in l:
+                    legend_order.append(l)
+    mapping = dict(zip(labels, handles))
+    sorted_handles = [mapping[item] for item in legend_order]
+    plt.legend(sorted_handles, legend_order)
+
+    # dates
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%M:%S"))
-    plt.xticks(fontsize=7)
     if window_duration is not None:
         last_date = datetime.datetime.fromisoformat(json.loads(lines[-1])["timestamp"])
         padding = 5
         end_window = last_date + datetime.timedelta(seconds=last_date.second % padding)
         start_window = end_window - datetime.timedelta(seconds=window_duration)
         ax.set_xlim(left=start_window, right=end_window)
+
+    # ticks
+    ax.grid(True)
     ax.xaxis.set_major_locator(mdates.SecondLocator(bysecond=range(0, 61, 5)))
     ax.xaxis.set_minor_locator(mdates.SecondLocator(bysecond=range(0, 61, 1)))
+    plt.xticks(fontsize=7)
+
     plot_filename = plot_saving_path + "/plot_IU_exchange.png"
     plt.savefig(plot_filename, dpi=200, bbox_inches="tight")
     plt.close()
