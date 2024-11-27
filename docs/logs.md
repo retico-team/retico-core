@@ -79,7 +79,7 @@ retico.network.run(m1)
 
 The logging system comes alongside a plotting system that provides the system with a basic execution vizualization. The system can create a plot (using `matplotlib`) of the system's execution from the log messages stored in the log file. This plot can be created either after the system's execution or in real time, the last option is presented in details in a section below.
 
-| ![Foo](img/plot_example.png) |
+| ![Foo](img/plot_example_simple.png) |
 |:--:|
 | *A plot generated from the log file of a retico system's execution* |
 
@@ -100,11 +100,7 @@ retico.network.run(m1)
 
 The configuration file (here `configs/plot_config.json`), is mandatory because it is used to specify which log message are retrieved from log file to create the plot. Which means that if you provide an empty json file, the resulting plot would also be empty. This configuration file is a JSON file, with a precise structure, where it is possible to specify every event from every module you want to plot.
 
-```{warning}
-The full module name (result of the module's `name()` function) has to be put in the configuration file, an exact macthing will be checked during the `plot()` function.
-```
-
-Example : Plot configuration where I want to plot all `process_update` and `create_iu` log messages from `Module 1`.
+Example : Plot configuration where I want to plot all `process_update` and `create_iu` log messages from `Module 1`, and only the `process_update` from `Module 2`.
 
 ```yaml
 {
@@ -116,37 +112,60 @@ Example : Plot configuration where I want to plot all `process_update` and `crea
             },
         }
     }
+    "Module 2": {
+        "events": {
+            "process_update": {
+            },
+        }
+    }
 }
 ```
 
+```{warning}
+The **full module name** (result of the module's `name()` function) has to be put in the configuration file, an exact macthing will be checked during the `plot()` function.
+```
+
+### Module names in plot's y-axis
+
+The **name** of the modules in the plot's y axis is the first word of the module's name (the result of the module's `name()` function), i.e. the substring corresponding to all characters before the first space character. So a module called `ASR Whisper Module` will be designated as `ASR` in the plot.
+
+Which means that the two modules `Module 1` and `Module 2` in the example above would both be designated as `Module` in the y-axis of the plot. It probably would have been better to named them `Moule_1` or `First Module`... In any case make sure the first word describes your Module well enough.
+
+The **order** of the modules in the y-axis is corresponds their order in the configuration file, which means that, in the example above, the `Module 1` will be above `Module 2` in the plot's y-axis.
+
 ### Plot config key words
 
-The `plot` function in `log_utils` uses some key words to easily configurate the plot and have shorter plot configuration file.
-If you want to plot all `process_update` log message from every module, you can use the `any_module` key word.
-If you want to plot all log message from a module, you can use the `any_event` key word.
+The `plot` function in `log_utils` uses some key words to easily configurate the plot and have shorter plot configuration file :
 
-Here is an minimal example of the configuration file using these key words (it will plot all `process_update` log from `Module 1` and all `create_iu` log from all modules):
+- `any_module` : If you want to plot all `process_update` log messages from every module, you can use the `any_module` key word.
+- `other_events` : If you want to plot all log messages from a module, you can use the `other_events` key word.
+- `exclude` : If you want to exlude a log message from the plot, you can use the `exclude` key word.
+
+Here is an minimal example of the configuration file using these key words : The plot would contain all `create_iu` log message from all modules, except for `Module 1` because its `create_iu` logs are explicitly excluded. It will also contains all the log messages from `Module 1` that are not `create_iu`.
 
 ```yaml
 {
-    "Module 1": {
-        "events": {
-            "any_event": {
-            }
-        }
-    },
     "any_module": {
         "events": {
             "create_iu": {
+            }
+        }
+    },
+    "Module 1": {
+        "events": {
+            "create_iu": {
+                "exclude": true,
+            },
+            "other_events": {
             }
         }
     }
 }
 ```
 
-### Customize log message markers
+### Customize plot's markers
 
-You can customize the markers attributes for each log message on your config (and it is recommended to do so for clarity). The following attributes will be used as arguments in the `matplotlib.plot()` calls.
+You can customize the `matplotlib`'s markers attributes for each log message on your config (and it is recommended to do so for clarity). The following attributes will be used as arguments in the `matplotlib.plot()` calls.
 
 - `marker` : the marker you want to use for this log message.
 - `marker_color` : the marker color you want to use for this log message.
@@ -156,7 +175,20 @@ You can customize the markers attributes for each log message on your config (an
 For more information, read `matplotlib` documentation : [matplotlib.plot() documentation](https://matplotlib.org/stable/api/_as_gen/matplotlib.axes.Axes.plot.html#matplotlib.axes.Axes.plot).
 ```
 
-If no customization is given in the config (like it is below, for `create_iu` log messages from `any_module`), a general grey marker will be plotted.
+If no customization is given in the config (like it is below, for `create_iu` log messages from `any_module`), a default grey line will be plotted.
+
+#### Markers superposition and priority
+
+Two log messages from the same module with the same timestamp will be superposed at the same place in the plot. The marker that will be in front of the other is the one that is described first in the config file. In the example below, it means that if a `process_update` and a `create_iu` log from `Module 1` have the same timestamp, the `process_update` marker will be in front of the `create_iu` marker.
+
+```{note}
+If you want to be able to see the superposition of markers, configure the size of the markers so that the first in the config have the smallest size (like it is in the config file example below).
+
+![Foo](img/marker_superposition.png)
+
+*A superposition of multiple markers clearly visible because of the size difference*
+
+```
 
 ```yaml
 {
@@ -166,16 +198,12 @@ If no customization is given in the config (like it is below, for `create_iu` lo
                 "plot_settings": {
                     "marker": "|",
                     "marker_color": "blue",
-                    "marker_size": 18
+                    "marker_size": 10
                 }
-            },
+            }
         }
     },
     "any_module": {
-        "events": {
-            "create_iu": {
-            }
-        },
         "events": {
             "process_update": {
                 "plot_settings": {
@@ -183,7 +211,15 @@ If no customization is given in the config (like it is below, for `create_iu` lo
                     "marker_color": "red",
                     "marker_size": 10
                 }
-            }
+            },
+            "create_iu": {
+                "plot_settings": {
+                    "marker": "x",
+                    "marker_color": "red",
+                    "marker_size": 18
+                }
+            },
+            "other_events": {}
         }
     }
 }
@@ -196,10 +232,10 @@ That means the `plot` function had to define an priority order to have a general
 
 The priority order is the following :
 
-1. the log message matches with a specified event name, under a specified module name, in the plot config.
-2. the log message matches with a specified event name, under the `any_module` key word.
-3. the log message matches with the `any_event` key word, under a specified module name.
-4. the log message matches with the `any_event` key word, under the `any_module` key word. (any event from any module would match this if it is in the plot config file)
+1. the log message matches with a specified event name, under a specified module name, in the plot config (`Module 1` -> `process_update`).
+2. the log message matches with a specified event name, under the `any_module` key word (`any_module` -> `process_update`).
+3. the log message matches with the `other_events` key word, under a specified module name (`Module` -> `other_events`).
+4. the log message matches with the `other_events` key word, under the `any_module` key word (`any_module` -> `other_events`). (any event from any module would match this category if it is in the plot config file)
 
 Which means that in the above example, `process_update` log messages from `Module 1` would be plotted as blue lines.
 
@@ -219,19 +255,8 @@ retico_core.log_utils.configurate_plot(
     is_plot_live=True,
     refreshing_time=1,
     plot_config_path="configs/plot_config.json",
-    module_order=["Module 1", "Module 2"],
     window_duration=30,
 )
 
 retico.network.run(m1)
-```
-
-### Modules names in the plot
-
-Sometimes, the modules have a very long name (their name is the return value of the `name() function` and not the class name), which is not convenient if the full name is to be used as the x-axis value of our plot. The implementation choice that has been made is to only use the first word of the module's name as the x-axis value in the plot (the substring before the first space). So a module called `ASR Whisper Module` will be designated as `ASR` in the plot.
-
-If you want to fix the order of the modules names in the plot (vertical order of the modules), you can set the `module_order` parameter of `configurate_plot`, with a list of your modules names in the desired order, the earliest in list, the lowest in the plot.
-
-```{warning}
-Careful, the `module_order` list must contain only the first word of the name of the module (the substring before the first space). Example : a module with the name `ASR Whisper Module` must be designated as `ASR` in the `module_order` list to be sorted at the right place (in any other case, it will be ignored).
 ```

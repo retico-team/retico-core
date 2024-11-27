@@ -345,15 +345,12 @@ REFRESHING_TIME = 1
 LOG_FILE_PATH = None
 PLOT_SAVING_PATH = None
 PLOT_CONFIG_PATH = None
-MODULE_ORDER = None
 
 
 def store_log(
     log_data,
-    plot_config,
     events,
     event_name_in_config,
-    module_name_in_config,
     event_name_for_plot,
     module_name_for_plot,
     date,
@@ -363,11 +360,8 @@ def store_log(
 
     Args:
         log_data (dict): the data structure where the logs that will be plotted are stored.
-        plot_config (dict): the plot_config contains the events that will be plotted, and their
-            corresponding plot information.
         events (dict): dictionary containing all events to plot for that event.
         event_name_in_config (str): the event name in log message.
-        module_name_in_config (str): the module name in log message.
         event_name_for_plot (str): the log's event name.
         module_name_for_plot (str): A shorter version of the module's name (for the plot).
         date (date): the log's timestamp.
@@ -377,18 +371,16 @@ def store_log(
         the event has been stored, False if it hasn't.
     """
     is_event_in_config = events is not None and event_name_in_config in events
-    if is_event_in_config and not (
-        "exclude" in plot_config[module_name_in_config]["events"][event_name_in_config]
-    ):
+    if is_event_in_config and not ("exclude" in events[event_name_in_config]):
         if event_name_for_plot not in log_data["events"]:
             log_data["events"][event_name_for_plot] = {"x_axis": [], "y_axis": []}
-            if (
-                "plot_settings"
-                in plot_config[module_name_in_config]["events"][event_name_in_config]
-            ):
-                log_data["events"][event_name_for_plot]["plot_settings"] = plot_config[
-                    module_name_in_config
-                ]["events"][event_name_in_config]["plot_settings"]
+            if "plot_settings" in events[event_name_in_config]:
+                # print(
+                #     f"plot_config[module_name_in_config]['events'] {plot_config[module_name_in_config]['events']}"
+                # )
+                log_data["events"][event_name_for_plot]["plot_settings"] = events[
+                    event_name_in_config
+                ]["plot_settings"]
         log_data["events"][event_name_for_plot]["y_axis"].append(module_name_for_plot)
         log_data["events"][event_name_for_plot]["x_axis"].append(date)
     return log_data, is_event_in_config
@@ -399,7 +391,6 @@ def plot(
     plot_saving_path,
     plot_config,
     events_all_modules,
-    module_order=None,
     log_data={"events": {}},
     line_cpt=0,
     window_duration=None,
@@ -415,8 +406,6 @@ def plot(
         plot_config (dict): the plot_config contains the events that will be plotted, and their
             corresponding plot information.
         events_all_modules (dict): the log events that will be retrieved for every module.
-        module_order (list[str], optional): Custom order of the modules in the final plot (first in
-            the list is the lowest on the plot). Defaults to None
         log_data (dict, optional): If called from the plot_live function, used to store current
             log_file logs and only retrieve new logs at each loop of live plotting. Defaults to
             {"events": {}}.
@@ -436,13 +425,13 @@ def plot(
     with open(log_file_path, encoding="utf-8") as f:
         lines = f.readlines()
         first_line = lines[0]
-        last_line = lines[-1]
         first_line_date = datetime.datetime.fromisoformat(
             json.loads(first_line)["timestamp"]
         )
-        last_line_date = datetime.datetime.fromisoformat(
-            json.loads(last_line)["timestamp"]
-        )
+        # last_line = lines[-1]
+        # last_line_date = datetime.datetime.fromisoformat(
+        #     json.loads(last_line)["timestamp"]
+        # )
         new_pointer = len(lines)
         lines = lines[line_cpt:]
         line_cpt = new_pointer
@@ -462,7 +451,6 @@ def plot(
             date = datetime.datetime.fromisoformat(log["timestamp"])
             date_plt = mdates.date2num(date)
             module_name_for_plot = module_name.split(maxsplit=1)[0]
-            # module_name_for_plot = " ".join(module_name.split()[:1])
 
             # log from event, from most specific to least specific
             events_specific_module = None
@@ -472,10 +460,8 @@ def plot(
             # if we specified in the config to log specific event from specific module
             log_data, has_been_stored = store_log(
                 log_data,
-                plot_config,
                 events_specific_module,
                 event_name,
-                module_name,
                 module_name_for_plot + "_" + event_name,
                 module_name_for_plot,
                 date_plt,
@@ -486,10 +472,8 @@ def plot(
             # if we specified in the config to log specific event from any module
             log_data, has_been_stored = store_log(
                 log_data,
-                plot_config,
                 events_all_modules,
                 event_name,
-                "any_module",
                 event_name,
                 module_name_for_plot,
                 date_plt,
@@ -500,10 +484,8 @@ def plot(
             # if we specified in the config to log any event from specific module
             log_data, has_been_stored = store_log(
                 log_data,
-                plot_config,
                 events_specific_module,
-                "any_event",
-                module_name,
+                "other_events",
                 "other_events_" + module_name_for_plot,
                 module_name_for_plot,
                 date_plt,
@@ -514,10 +496,8 @@ def plot(
             # if we specified in the config to log any event from any module
             log_data, has_been_stored = store_log(
                 log_data,
-                plot_config,
                 events_all_modules,
-                "any_event",
-                "any_module",
+                "other_events",
                 "other_events",
                 module_name_for_plot,
                 date_plt,
@@ -527,52 +507,47 @@ def plot(
             terminal_logger.exception("exception store log")
             nb_pb_line += 1
 
-    # put all events data in the plot
     _, ax = plt.subplots(figsize=(10, 5))
-    try:
-        # reorder from config
-        labels = log_data["events"].keys()
-        # module_order_2 = [m for m in plot_config.items()]
-        plot_config_order_2 = []
-        for m, mdata in plot_config.items():
-            mname = m.split(" ")[0] if m != "any_module" else ""
-            for e, edata in mdata["events"].items():
-                ename = e if e != "any_event" else "other_events"
-                if "exclude" not in edata:
-                    for ee in log_data["events"]:
-                        print(f"{ee}, {ename}, {mname}")
-                        if mname in ee and ename in ee:
-                            plot_config_order_2.append(ee)
-        print(f"plot_config_order {plot_config_order_2} {labels}")
-        plot_config_order = [
-            [e for e, edata in mdata["events"].items() if "exclude" not in edata]
-            for m, mdata in plot_config.items()
-        ]
-        print(f"plot_config_order {plot_config_order} {labels}")
-        total_order = sum(plot_config_order, [])
-        print(total_order)
-        # reordered_indices = np.concatenate(
-        #     [np.where(log_data["events"] == o)[0] for o in plot_config_order]
-        # )
-        # x = x_np[reordered_indices]
-        # y = y_np[reordered_indices]
-        # for eorder in plot_config_order:
 
-        # for event_name, event_data in log_data["events"].items():
-        for e in plot_config_order_2[::-1]:
-            event_name, event_data = e, log_data["events"][e]
+    # REORDER Y-AXIS
+    # create a simulation axis to reorder the plot's y-axis (module names)
+    # to respect the module order from the plot configuration file
+    module_order_y_axis = [
+        m.split(" ")[0] for m in plot_config.keys() if m != "any_module"
+    ][::-1]
+    dates_order_y_axis = [
+        mdates.date2num(first_line_date) for i in range(len(module_order_y_axis))
+    ]
+    ax.plot(
+        dates_order_y_axis,
+        module_order_y_axis,
+        ".",
+        color="white",
+        label="",
+        markersize=1,
+    )
+
+    # put all events data in the plot
+    try:
+        # REORDER MARKER LAYERS
+        # reorder log_data so that marker layers respect events order from config
+        events = log_data["events"].keys()
+        ordered_events = []
+        for m_name_conf, m_data in plot_config.items():
+            m_name_plot = (
+                m_name_conf.split(" ")[0] if m_name_conf != "any_module" else ""
+            )
+            for e_name_conf, e_data in m_data["events"].items():
+                if "exclude" not in e_data:
+                    for e_name_plot in events:
+                        if m_name_plot in e_name_plot and e_name_conf in e_name_plot:
+                            ordered_events.append(e_name_plot)
+
+        # reverse the order to have the first in config plotted in last
+        for e_name_plot in ordered_events[::-1]:
+            event_data = log_data["events"][e_name_plot]
             x = event_data["x_axis"]
             y = event_data["y_axis"]
-
-            # re-order if the module_order parameter is set
-            if module_order is not None:
-                x_np = np.array(event_data["x_axis"])
-                y_np = np.array(event_data["y_axis"])
-                reordered_indices = np.concatenate(
-                    [np.where(y_np == o)[0] for o in module_order]
-                )
-                x = x_np[reordered_indices]
-                y = y_np[reordered_indices]
 
             if "plot_settings" in event_data:
                 ax.plot(
@@ -580,7 +555,7 @@ def plot(
                     y,
                     event_data["plot_settings"]["marker"],
                     color=event_data["plot_settings"]["marker_color"],
-                    label=event_name,
+                    label=e_name_plot,
                     markersize=event_data["plot_settings"]["marker_size"],
                 )
             else:
@@ -588,8 +563,8 @@ def plot(
                     event_data["x_axis"],
                     event_data["y_axis"],
                     "|",
-                    color="g",
-                    label=event_name,
+                    color="lightslategrey",
+                    label=e_name_plot,
                     markersize=20,
                 )
     except Exception:
@@ -599,20 +574,12 @@ def plot(
 
     # legend
     ax.legend(fontsize="7", loc="center left")
-    handles, labels = plt.gca().get_legend_handles_labels()
-    print(f"legend {handles}, {labels}")
-    legend_order = []
-    legend_order.extend(
-        [k if k != "any_event" else "other_events" for k in events_all_modules.keys()]
-    )
-    if module_order is not None:
-        for m_id in range(len(module_order)):
-            for l in labels:
-                if module_order[-m_id] in l:
-                    legend_order.append(l)
-    mapping = dict(zip(labels, handles))
-    sorted_handles = [mapping[item] for item in legend_order]
-    plt.legend(sorted_handles, legend_order)
+    # REORDER LEGEND
+    # re-reversed to match config order
+    handles = plt.gca().get_legend().legend_handles[::-1]
+    for h in handles:
+        h.set_markersize(3 * np.log(h.get_markersize()))
+    plt.legend(handles, ordered_events)
 
     # dates
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%M:%S"))
@@ -629,6 +596,7 @@ def plot(
     ax.xaxis.set_minor_locator(mdates.SecondLocator(bysecond=range(0, 61, 1)))
     plt.xticks(fontsize=7)
 
+    # save plot
     plot_filename = plot_saving_path + "/plot_IU_exchange.png"
     plt.savefig(plot_filename, dpi=200, bbox_inches="tight")
     plt.close()
@@ -649,13 +617,9 @@ def extract_number(string):
     return (int(s[0]) if s else -1, string)
 
 
-def plot_live(module_order=None):
+def plot_live():
     """a looping function that creates a plot from the current run's log_file each `REFRESHING_TIME`
     seconds (if it's the biggest run number in your `logs` folder)
-
-    Args:
-        module_order (list[str], optional): Custom order of the modules in the final plot (first in
-        the list is the lowest on the plot). Defaults to None.
     """
     global LOG_FILE_PATH, PLOT_SAVING_PATH
 
@@ -687,16 +651,13 @@ def plot_live(module_order=None):
             plot_saving_path=PLOT_SAVING_PATH,
             plot_config=plot_config,
             events_all_modules=events_all_modules,
-            module_order=module_order,
             log_data=log_data,
             line_cpt=line_cpt,
             window_duration=WINDOW_DURATION,
         )
 
 
-def plot_once(
-    plot_config_path, log_file_path=None, plot_saving_path=None, module_order=None
-):
+def plot_once(plot_config_path, log_file_path=None, plot_saving_path=None):
     """Create a plot for a previous system run from the corresponding log file.
 
     Args:
@@ -705,8 +666,6 @@ def plot_once(
             Defaults to None.
         plot_saving_path (str, optional): path to the folder where the plot will be saved. Defaults
             to None.
-        module_order (list[str], optional): Custom order of the modules in the final plot (first in
-            the list is the lowest on the plot). Defaults to None.
     """
     if log_file_path is None or plot_saving_path is None:
         subfolders = [f.path for f in os.scandir("logs/") if f.is_dir()]
@@ -725,7 +684,6 @@ def plot_once(
         plot_saving_path=plot_saving_path,
         plot_config=plot_config,
         events_all_modules=events_all_modules,
-        module_order=module_order,
     )
 
 
@@ -748,7 +706,6 @@ def configurate_plot(
     plot_config_path=None,
     log_file_path=None,
     plot_saving_path=None,
-    module_order=None,
     window_duration=5,
 ):
     """A function that configures the global parameters related to plot configuration.
@@ -766,29 +723,18 @@ def configurate_plot(
             Defaults to None.
         plot_saving_path (str, optional): path to the folder where the plot will be saved. Defaults
             to None.
-        module_order (list[str], optional): Custom order of the modules in the final plot (first in
-            the list is the lowest on the plot). Defaults to None.
         window_duration (int, optional): a fixed time window (in seconds) preceding the current time
             which defines all the logs that will be used for the real-time plot. Defaults to 5.
     """
     global THREAD_ACTIVE, REFRESHING_TIME, LOG_FILE_PATH, PLOT_SAVING_PATH, PLOT_CONFIG_PATH
-    global MODULE_ORDER, WINDOW_DURATION
+    global WINDOW_DURATION
     THREAD_ACTIVE = is_plot_live
     REFRESHING_TIME = refreshing_time
     PLOT_CONFIG_PATH = plot_config_path
     LOG_FILE_PATH = log_file_path
     PLOT_SAVING_PATH = plot_saving_path
-    MODULE_ORDER = module_order
     WINDOW_DURATION = window_duration
 
 
 if __name__ == "__main__":
-    m_order = [
-        "Microphone",
-        "VAD",
-        "ASR",
-        "LLM",
-        "TTS",
-        "Speaker",
-    ]
-    plot_once("configs/plot_config_simple.json", module_order=m_order)
+    plot_once("configs/plot_config_simple.json")

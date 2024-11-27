@@ -516,6 +516,7 @@ class AbstractModule:
         self.file_logger = FileLogger()
         self.terminal_logger = self.terminal_logger.bind(module=self.name())
         self.file_logger = self.file_logger.bind(module=self.name())
+        self.file_logger.info("init")
 
     def revoke(self, iu, remove_revoked=True):
         """Revokes an IU form the list of the current_input or current_output, depending
