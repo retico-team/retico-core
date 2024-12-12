@@ -151,8 +151,8 @@ class DispatchedAudioIU(AudioIU):
         self.completion = completion
         self.is_dispatching = is_dispatching
 
-
 class MicrophoneModule(retico_core.AbstractProducingModule):
+
     """A module that produces IUs containing audio signals that are captured by
     a microphone."""
 
@@ -162,7 +162,7 @@ class MicrophoneModule(retico_core.AbstractProducingModule):
 
     @staticmethod
     def description():
-        return "A prodicing module that records audio from microphone."
+        return "A producing module that records audio from microphone."
 
     @staticmethod
     def output_iu():
