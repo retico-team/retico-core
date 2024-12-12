@@ -110,12 +110,11 @@ After that, we can run the network. **Warning: If you do not connect a headset, 
 can cause a feedback loop, as you output exactly what the microphone records!**
 
 ```python
-microphone_module.start()
-speaker_module.start()
+microphone_module.run()
+speaker_module.run()
 
 input()
 
 microphone_module.stop()
 speaker_module.stop()
 ```
-
