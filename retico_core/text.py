@@ -61,6 +61,32 @@ def get_text_increment(module, new_text):
     return um, new_tokens
 
 
+# class TextIU(retico_core.IncrementalUnit):
+#     """An IU that contains text."""
+
+#     @staticmethod
+#     def type():
+#         return "Text IU"
+
+#     def get_text(self):
+#         """Return the text contained in the IU.
+
+#         Returns:
+#             str: The text contained in the IU.
+#         """
+#         return self.payload
+
+#     def set_text(self, text):
+#         """Sets the text contained in the IU.
+
+#         Args:
+#             text (str): The new text of the IU
+#         """
+#         self.payload = text
+
+#     text = property(get_text, set_text)
+
+
 class TextIU(retico_core.IncrementalUnit):
     """An IU that contains text."""
 
@@ -68,23 +94,10 @@ class TextIU(retico_core.IncrementalUnit):
     def type():
         return "Text IU"
 
-    def get_text(self):
-        """Return the text contained in the IU.
-
-        Returns:
-            str: The text contained in the IU.
-        """
-        return self.payload
-
-    def set_text(self, text):
-        """Sets the text contained in the IU.
-
-        Args:
-            text (str): The new text of the IU
-        """
+    def __init__(self, text=None, **kwargs):
+        super().__init__(**kwargs)
         self.payload = text
-
-    text = property(get_text, set_text)
+        self.text = text
 
 
 class GeneratedTextIU(TextIU):
@@ -97,9 +110,10 @@ class GeneratedTextIU(TextIU):
     def type():
         return "Generated Text IU"
 
-    def __init__(self, dispatch=False, **kwargs):
+    def __init__(self, text=None, dispatch=False, **kwargs):
         super().__init__(**kwargs)
         self.dispatch = dispatch
+        self.text = text
 
 
 class SpeechRecognitionIU(TextIU):
@@ -110,21 +124,28 @@ class SpeechRecognitionIU(TextIU):
         return "Speech Recgonition IU"
 
     def __init__(
-        self, creator, iuid=0, previous_iu=None, grounded_in=None, payload=None
+        self,
+        creator,
+        iuid="0",
+        previous_iu=None,
+        grounded_in=None,
+        predictions=None,
+        text=None,
+        stability=None,
+        confidence=None,
+        final=None,
     ):
         super().__init__(
-            creator,
+            creator=creator,
             iuid=iuid,
             previous_iu=previous_iu,
             grounded_in=grounded_in,
-            payload=payload,
+            text=text,
         )
-        self.predictions = None
-        self.stability = None
-        self.confidence = None
-        self.payload = payload
-        self.text = None
-        self.final = False
+        self.predictions = predictions
+        self.stability = stability
+        self.confidence = confidence
+        self.final = final
 
     def set_asr_results(self, predictions, text, stability, confidence, final):
         """Set the asr results for the SpeechRecognitionIU.
@@ -144,9 +165,6 @@ class SpeechRecognitionIU(TextIU):
         self.stability = stability
         self.confidence = confidence
         self.final = final
-
-    def get_text(self):
-        return self.text
 
 
 class TextRecorderModule(retico_core.AbstractConsumingModule):
@@ -170,7 +188,8 @@ class TextRecorderModule(retico_core.AbstractConsumingModule):
         self.separator = separator
         self.txt_file = None
 
-    def setup(self):
+    def setup(self, **kwargs):
+        super().setup(**kwargs)
         self.txt_file = open(self.filename, "w")
 
     def shutdown(self):
@@ -224,9 +243,10 @@ class TextTriggerModule(retico_core.AbstractTriggerModule):
 
     def trigger(self, data={}, update_type=retico_core.UpdateType.ADD):
         text = data.get("text", "This is a trigger test")
-        output_iu = self.create_iu()
-        output_iu.payload = text
-        output_iu.dispatch = self.dispatch
+        # output_iu = self.create_iu()
+        # output_iu.payload = text
+        # output_iu.dispatch = self.dispatch
+        output_iu = self.create_iu(text=text, dispatch=self.dispatch)
         self.append(retico_core.UpdateMessage.from_iu(output_iu, update_type))
 
 
@@ -259,9 +279,10 @@ class TextDispatcherModule(retico_core.AbstractModule):
     def process_update(self, update_message):
         um = retico_core.UpdateMessage()
         for iu, ut in update_message:
-            output_iu = self.create_iu(iu)
-            output_iu.payload = iu.get_text()
-            output_iu.dispatch = True
+            # output_iu = self.create_iu(iu)
+            # output_iu.payload = iu.get_text()
+            # output_iu.dispatch = True
+            output_iu = self.create_iu(text=iu.get_text(), dispatch=True)
             if isinstance(iu, SpeechRecognitionIU) and self.dispatch_final:
                 output_iu.dispatch = iu.final
             output_iu.committed = iu.committed
@@ -313,16 +334,23 @@ class IncrementalizeASRModule(retico_core.AbstractModule):
             if len(current_text) == 0:
                 continue
 
-            output_iu = self.create_iu(iu)
-
-            current_text =  current_text[0]
-            # Just copy the input IU
-            output_iu.set_asr_results(
-                iu.predictions,
-                current_text,
-                iu.stability,
-                iu.confidence,
-                iu.final,
+            current_text = current_text[0]
+            # output_iu = self.create_iu(iu)
+            # # Just copy the input IU
+            # output_iu.set_asr_results(
+            #     iu.predictions,
+            #     current_text,
+            #     iu.stability,
+            #     iu.confidence,
+            #     iu.final,
+            # )
+            output_iu = self.create_iu(
+                grounded_iu=iu,
+                predictions=iu.predictions,
+                text=current_text,
+                stability=iu.stability,
+                confidence=iu.confidence,
+                final=iu.final,
             )
             self.current_input.append(output_iu)
 

@@ -8,6 +8,7 @@ starting and stopping them based on only a single module.
 """
 
 import pickle
+import retico_core
 
 
 def load(filename: str):
@@ -57,6 +58,7 @@ def load_and_execute(filename):
     for module in module_list:
         module.run(run_setup=False)
 
+    retico_core.log_utils.setup_plot_live()
     input()
 
     for module in module_list:
@@ -93,6 +95,8 @@ def run(module):
     for m in m_list:
         m.setup()
 
+    retico_core.log_utils.setup_plot_live()
+
     for m in m_list:
         m.run(run_setup=False)
 
@@ -111,6 +115,8 @@ def stop(module):
 
     for m in m_list:
         m.stop()
+
+    retico_core.log_utils.stop_plot_live()
 
 
 def discover(module):

@@ -36,6 +36,7 @@ class DialogueActIU(retico_core.IncrementalUnit):
         payload=None,
         act=None,
         concepts=None,
+        confidence=None,
         **kwargs
     ):
         """Initialize the DialogueActIU with act and concepts.
@@ -55,7 +56,8 @@ class DialogueActIU(retico_core.IncrementalUnit):
         self.concepts = {}
         if concepts:
             self.concepts = concepts
-        self.confidence = 0.0
+        self.confidence = confidence
+        self.payload = (act, concepts)
 
     def set_act(self, act, concepts=None, confidence=1.0):
         """Set the act and concept of the IU.
@@ -98,10 +100,10 @@ class EndOfTurnIU(retico_core.IncrementalUnit):
     def type():
         return "End-of-Turn Incremental Unit"
 
-    def __init__(self, **kwargs):
+    def __init__(self, probability=0.0, is_speaking=False, **kwargs):
         super().__init__(**kwargs)
-        self.probability = 0.0
-        self.is_speaking = False
+        self.probability = probability
+        self.is_speaking = is_speaking
 
     def set_eot(self, probability=0.0, is_speaking=False):
         """Set the end-of-turn probability and a flag if the interlocutor is
@@ -113,7 +115,8 @@ class EndOfTurnIU(retico_core.IncrementalUnit):
         """
         self.is_speaking = is_speaking
         self.probability = probability
-        
+
+
 class GenericDictIU(retico_core.IncrementalUnit):
     """A Generic IU type that holds dictionaries
 
@@ -126,14 +129,23 @@ class GenericDictIU(retico_core.IncrementalUnit):
     def type():
         return "Generic Dictionary IU"
 
-    def __init__(self, creator=None, iuid=0, previous_iu=None, grounded_in=None,
-                 payload=None, **kwargs):
+    def __init__(
+        self,
+        creator=None,
+        iuid=0,
+        previous_iu=None,
+        grounded_in=None,
+        payload=None,
+        **kwargs
+    ):
         """Initialize the GenericDictIU with a payload
 
         Args:
         """
-        super().__init__(creator=creator, iuid=iuid, previous_iu=previous_iu,
-                         grounded_in=grounded_in)
+        super().__init__(
+            creator=creator, iuid=iuid, previous_iu=previous_iu, grounded_in=grounded_in
+        )
+        self.payload = payload
 
     def set_payload(self, payload):
         """Set the dictionary payload
@@ -159,13 +171,14 @@ class DialogueActRecorderModule(retico_core.AbstractConsumingModule):
     def input_ius():
         return [DialogueActIU, DispatchableActIU]
 
-    def __init__(self, filename, separator="\t", **kwargs):
+    def __init__(self, filename=None, separator="\t", **kwargs):
         super().__init__(**kwargs)
         self.filename = filename
         self.separator = separator
         self.txt_file = None
 
-    def setup(self):
+    def setup(self, **kwargs):
+        super().setup(**kwargs)
         self.txt_file = open(self.filename, "w")
 
     def prepare_run(self):
@@ -216,11 +229,15 @@ class DialogueActTriggerModule(retico_core.AbstractTriggerModule):
 
     def __init__(self, dispatch=True, **kwargs):
         super().__init__(**kwargs)
-        self.dispatch = True
+        self.dispatch = dispatch
 
     def trigger(self, data={}, update_type=retico_core.UpdateType.ADD):
-        output_iu = self.create_iu()
-        output_iu.dispatch = self.dispatch
-        output_iu.set_act(data.get("act", "greeting"), data.get("concepts", {}))
+        # output_iu = self.create_iu()
+        # output_iu.dispatch = self.dispatch
+        # output_iu.set_act(data.get("act", "greeting"), data.get("concepts", {}))
+        output_iu = self.create_iu(
+            dispatch=self.dispatch,
+            act=data.get("act", "greeting"),
+            concept=data.get("concepts", {}),
+        )
         self.append(retico_core.UpdateMessage.from_iu(output_iu, update_type))
-        

@@ -103,7 +103,6 @@ class AudioIU(retico_core.IncrementalUnit):
             float: Length of the audio in this IU in seconds.
         """
         return float(self.nframes) / float(self.rate)
-    
 
 
 class SpeechIU(AudioIU):
@@ -134,10 +133,10 @@ class DispatchedAudioIU(AudioIU):
     def type():
         return "Dispatched Audio IU"
 
-    def __init__(self, **kwargs):
+    def __init__(self, completion=None, is_dispatching=None, **kwargs):
         super().__init__(**kwargs)
-        self.completion = 0.0
-        self.is_dispatching = False
+        self.completion = completion
+        self.is_dispatching = is_dispatching
 
     def set_dispatching(self, completion, is_dispatching):
         """Set the completion percentage and the is_dispatching flag.
@@ -206,12 +205,19 @@ class MicrophoneModule(retico_core.AbstractProducingModule):
             sample = self.audio_buffer.get(timeout=1.0)
         except queue.Empty:
             return None
-        output_iu = self.create_iu()
-        output_iu.set_audio(sample, self.chunk_size, self.rate, self.sample_width)
+        # output_iu = self.create_iu()
+        # output_iu.set_audio(sample, self.chunk_size, self.rate, self.sample_width)
+        output_iu = self.create_iu(
+            raw_audio=sample,
+            nframes=self.chunk_size,
+            rate=self.rate,
+            sample_width=self.sample_width,
+        )
         return retico_core.UpdateMessage.from_iu(output_iu, retico_core.UpdateType.ADD)
 
-    def setup(self):
+    def setup(self, **kwargs):
         """Set up the microphone for recording."""
+        super().setup(**kwargs)
         p = self._p
         self.stream = p.open(
             format=p.get_format_from_width(self.sample_width),
@@ -225,11 +231,13 @@ class MicrophoneModule(retico_core.AbstractProducingModule):
         )
 
     def prepare_run(self):
+        super().prepare_run()
         if self.stream:
             self.stream.start_stream()
 
     def shutdown(self):
         """Close the audio stream."""
+        super().shutdown()
         self.stream.stop_stream()
         self.stream.close()
         self.stream = None
@@ -285,8 +293,9 @@ class SpeakerModule(retico_core.AbstractConsumingModule):
                 self.stream.write(bytes(iu.raw_audio))
         return None
 
-    def setup(self):
+    def setup(self, **kwargs):
         """Set up the speaker for outputting audio"""
+        super().setup(**kwargs)
         p = self._p
 
         if platform.system() == "Darwin":
@@ -372,8 +381,9 @@ class StreamingSpeakerModule(retico_core.AbstractConsumingModule):
                 self.audio_buffer.put(iu.raw_audio)
         return None
 
-    def setup(self):
+    def setup(self, **kwargs):
         """Set up the speaker for speaking...?"""
+        super().setup(**kwargs)
         p = self._p
         self.stream = p.open(
             format=p.get_format_from_width(self.sample_width),
@@ -386,10 +396,12 @@ class StreamingSpeakerModule(retico_core.AbstractConsumingModule):
         )
 
     def prepare_run(self):
+        super().prepare_run()
         self.stream.start_stream()
 
     def shutdown(self):
         """Close the audio stream."""
+        super().shutdown()
         self.stream.stop_stream()
         self.stream.close()
         self.stream = None
@@ -537,10 +549,19 @@ class AudioDispatcherModule(retico_core.AbstractModule):
                     if completion > 1:
                         completion = 1
 
-                    current_iu = self.create_iu(iu)
-                    current_iu.set_dispatching(completion, True)
-                    current_iu.set_audio(
-                        data, self.target_chunk_size, self.rate, self.sample_width
+                    # current_iu = self.create_iu(iu)
+                    # current_iu.set_dispatching(completion, True)
+                    # current_iu.set_audio(
+                    #     data, self.target_chunk_size, self.rate, self.sample_width
+                    # )
+                    current_iu = self.create_iu(
+                        grounded_in=iu,
+                        completion=completion,
+                        is_dispatching=True,
+                        raw_audio=data,
+                        nframes=self.target_chunk_size,
+                        rate=self.rate,
+                        sample_width=self.sample_width,
                     )
                     self.audio_buffer.append(current_iu)
                 self.set_dispatching(True)
@@ -561,14 +582,23 @@ class AudioDispatcherModule(retico_core.AbstractModule):
                         self._is_dispatching = False
                 if not self._is_dispatching:  # no else here! bc line above
                     if self.continuous:
-                        current_iu = self.create_iu(None)
-                        current_iu.set_audio(
-                            self.silence,
-                            self.target_chunk_size,
-                            self.rate,
-                            self.sample_width,
+                        # current_iu = self.create_iu(None)
+                        # current_iu.set_audio(
+                        #     self.silence,
+                        #     self.target_chunk_size,
+                        #     self.rate,
+                        #     self.sample_width,
+                        # )
+                        # current_iu.set_dispatching(0.0, False)
+                        current_iu = self.create_iu(
+                            grounded_in=None,
+                            completion=0.0,
+                            is_dispatching=False,
+                            raw_audio=self.silence,
+                            nframes=self.target_chunk_size,
+                            rate=self.rate,
+                            sample_width=self.sample_width,
                         )
-                        current_iu.set_dispatching(0.0, False)
                         self.append(
                             retico_core.UpdateMessage.from_iu(
                                 current_iu, retico_core.UpdateType.ADD
@@ -577,11 +607,13 @@ class AudioDispatcherModule(retico_core.AbstractModule):
             time.sleep((self.target_chunk_size / self.rate) / self.speed)
 
     def prepare_run(self):
+        super().prepare_run()
         self.run_loop = True
         t = threading.Thread(target=self._dispatch_audio_loop)
         t.start()
 
     def shutdown(self):
+        super().shutdown()
         self.run_loop = False
         self.audio_buffer = []
 
@@ -623,7 +655,8 @@ class AudioRecorderModule(retico_core.AbstractConsumingModule):
             if ut == retico_core.UpdateType.ADD:
                 self.wavfile.writeframes(iu.raw_audio)
 
-    def setup(self):
+    def setup(self, **kwargs):
+        super().setup(**kwargs)
         self.wavfile = wave.open(self.filename, "wb")
         self.wavfile.setframerate(self.rate)
         self.wavfile.setnchannels(CHANNELS)

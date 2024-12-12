@@ -11,12 +11,18 @@ The Incremental Unit provides the basic data structure to exchange information
 between modules.
 """
 
+import datetime
+import logging
+from pathlib import Path
 import queue
 import threading
 import time
 import enum
 import copy
 import json
+import traceback
+import structlog
+from retico_core.log_utils import log_exception, TerminalLogger, FileLogger
 
 
 class UpdateType(enum.Enum):
@@ -123,7 +129,7 @@ class IncrementalUnit:
         if grounded_in:
             self.meta_data = {**grounded_in.meta_data}
 
-        self.created_at = time.time()
+        self.created_at = datetime.datetime.now().isoformat()
         self._remove_old_links()
 
     def _remove_old_links(self):
@@ -148,7 +154,9 @@ class IncrementalUnit:
         Returns:
             float: The age of the IU in seconds
         """
-        return time.time() - self.created_at
+        return datetime.datetime.now() - datetime.datetime.fromisoformat(
+            self.created_at
+        )
 
     def older_than(self, s):
         """Return whether the IU is older than s seconds.
@@ -211,23 +219,26 @@ class IncrementalUnit:
         if not isinstance(other, IncrementalUnit):
             return False
         return self.iuid == other.iuid
-    
+
     def to_zmq(self, update_type):
         """
         returns a formatted string that can be sent across zeromq
         """
         import datetime
+
         payload = {}
-        payload["originatingTime"] = datetime.datetime.now().isoformat() #zmq expected format
+        payload["originatingTime"] = (
+            datetime.datetime.now().isoformat()
+        )  # zmq expected format
         payload["message"] = self.payload
         payload["update_type"] = str(update_type)
         return payload
-    
+
     def from_zmq(self, zmq_data):
         """
         reconstitues an IU from a formatted zeromq string
         """
-        self.payload = zmq_data['message']
+        self.payload = zmq_data["message"]
 
     @staticmethod
     def type():
@@ -270,7 +281,7 @@ class UpdateMessage:
         return um
 
     @classmethod
-    def from_iu_list(cls, self, iu_list):
+    def from_iu_list(cls, self, iu_list: list[tuple[IncrementalUnit, UpdateType]]):
         """Initializes the update message with a list of tuples containing the update
         type and incremental units in the format (IncrementalUnit, UpdateType)
 
@@ -320,7 +331,9 @@ class UpdateMessage:
             update_type = UpdateType(update_type)
         self._msgs.append((iu, update_type))
 
-    def add_ius(self, iu_list, strict_update_type=True):
+    def add_ius(
+        self, iu_list: list[tuple[IncrementalUnit, UpdateType]], strict_update_type=True
+    ):
         """Adds a list of incremental units and according update types to the update
         message.
 
@@ -339,14 +352,14 @@ class UpdateMessage:
                 given argument cannot be converted to an UpdateType. Only applies if the
                 strict_update_type flag is set.
         """
-        for update_type, iu in iu_list:
+        for iu, update_type in iu_list:
             if not isinstance(iu, IncrementalUnit):
                 raise TypeError(
                     "IU is of type %s but should be IncrementalUnit" % type(iu)
                 )
             if strict_update_type and not isinstance(update_type, UpdateType):
                 UpdateType(update_type)
-        for update_type, iu in iu_list:
+        for iu, update_type in iu_list:
             if strict_update_type and not isinstance(update_type, UpdateType):
                 update_type = UpdateType(update_type)
             self._msgs.append((iu, update_type))
@@ -498,6 +511,13 @@ class AbstractModule:
 
         self.iu_counter = 0
 
+        # set up logger
+        self.terminal_logger = TerminalLogger()
+        self.file_logger = FileLogger()
+        self.terminal_logger = self.terminal_logger.bind(module=self.name())
+        self.file_logger = self.file_logger.bind(module=self.name())
+        self.file_logger.info("init")
+
     def revoke(self, iu, remove_revoked=True):
         """Revokes an IU form the list of the current_input or current_output, depending
         on in which list it is found.
@@ -637,6 +657,29 @@ class AbstractModule:
         for q in self._right_buffers:
             q.put(copy.copy(update_message))
 
+        if len(update_message) != 0:
+            ius = update_message._msgs
+            first_iu = ius[0][0]
+            last_iu = ius[-1][0]
+            args = {
+                "first_iuid": first_iu.iuid,
+                "first_iu_created_at": first_iu.created_at,
+                "last_iuid": last_iu.iuid,
+                "last_iu_created_at": last_iu.created_at,
+            }
+            if first_iu.grounded_in is not None:
+                args["first_grounded_in_created_at"] = first_iu.grounded_in.created_at
+            if first_iu.previous_iu is not None:
+                args["first_previous_iu_created_at"] = first_iu.previous_iu.created_at
+            if last_iu.grounded_in is not None:
+                args["last_grounded_in_created_at"] = last_iu.grounded_in.created_at
+            if last_iu.previous_iu is not None:
+                args["last_previous_iu_created_at"] = last_iu.previous_iu.created_at
+            self.terminal_logger.info("append UM", **args)
+            self.file_logger.info("append UM", **args)
+        else:
+            self.file_logger.info("append UM")
+
     def subscribe(self, module, q=None):
         """Subscribe a module to the queue.
 
@@ -732,45 +775,60 @@ class AbstractModule:
         Returns:
             UpdateMessage: An update message that is produced by this module based
             on the incremental units that were given. May be None.
-        """ 
+        """
         raise NotImplementedError()
 
     def _run(self):
         self.prepare_run()
         self._is_running = True
         while self._is_running:
-            for buffer in self._left_buffers:
-                with self.mutex:
-                    try:
-                        update_message = buffer.get(timeout=self.QUEUE_TIMEOUT)
-                    except queue.Empty:
-                        update_message = None
-                    if update_message:
-                        '''
-                        If this module gets an invalid IU, print a warning the first time
-                        then ignore thereafter. 
-                        '''
-                        if not update_message.has_valid_ius(self.input_ius()):
-                            viu = update_message.found_invalid_iu
-                            if viu not in self.found_invalid_ius:
-                                print("Warning: the module {} can't handle type of IU {}. Will ignore this IU type.".format(self.name(), viu))
-                                self.found_invalid_ius.append(viu)
-                            continue
-                        output_message = self.process_update(update_message)
-                        update_message.set_processed(self)
-                        for input_iu in update_message.incremental_units():
-                            self.event_call(self.EVENT_PROCESS_IU, {"iu": input_iu})
-                        self.event_call(
-                            self.EVENT_PROCESS_UPDATE_MESSAGE,
-                            {"update_message": update_message},
-                        )
-                        if output_message:
-                            if output_message.has_valid_ius(self.output_iu()):
-                                self.append(output_message)
-                            else:
-                                raise TypeError(
-                                    "This module should not produce IUs of this type."
-                                )
+            try:
+                for buffer in self._left_buffers:
+                    with self.mutex:
+                        try:
+                            update_message = buffer.get(timeout=self.QUEUE_TIMEOUT)
+                        except queue.Empty:
+                            update_message = None
+                        if update_message:
+                            # If this module gets an invalid IU, print a warning the first time then ignore thereafter.
+                            if not update_message.has_valid_ius(self.input_ius()):
+                                viu = update_message.found_invalid_iu
+                                if viu not in self.found_invalid_ius:
+                                    self.file_logger.warning(
+                                        "Warning: the module {} can't handle type of IU {}. Will ignore this IU type.".format(
+                                            self.name(), viu
+                                        ),
+                                        iu_type=viu,
+                                    )
+                                    self.terminal_logger.warning(
+                                        "Warning: the module {} can't handle type of IU {}. Will ignore this IU type.".format(
+                                            self.name(), viu
+                                        ),
+                                        iu_type=viu,
+                                        creator=update_message._msgs[0][0].creator,
+                                    )
+                                    self.found_invalid_ius.append(viu)
+                                continue
+                            # logging process update
+                            self.terminal_logger.info("process_update")
+                            self.file_logger.info("process_update")
+                            output_message = self.process_update(update_message)
+                            update_message.set_processed(self)
+                            for input_iu in update_message.incremental_units():
+                                self.event_call(self.EVENT_PROCESS_IU, {"iu": input_iu})
+                            self.event_call(
+                                self.EVENT_PROCESS_UPDATE_MESSAGE,
+                                {"update_message": update_message},
+                            )
+                            if output_message:
+                                if output_message.has_valid_ius(self.output_iu()):
+                                    self.append(output_message)
+                                else:
+                                    raise TypeError(
+                                        "This module should not produce IUs of this type."
+                                    )
+            except Exception as e:
+                log_exception(module=self, exception=e)
         self.shutdown()
 
     def is_valid_input_iu(self, iu):
@@ -803,7 +861,8 @@ class AbstractModule:
         immediately be run. For code that should be executed immediately before
         a module is run use the `prepare_run` method.
         """
-        pass
+        self.terminal_logger.info("setup")
+        self.file_logger.info("setup")
 
     def prepare_run(self):
         """A method that is executed just before the module is being run.
@@ -814,12 +873,14 @@ class AbstractModule:
         this method makes sure that other modules in the network are also
         already setup.
         """
-        pass
+        self.terminal_logger.info("prepare_run")
+        self.file_logger.info("prepare_run")
 
     def shutdown(self):
         """This method is called before the module is stopped. This method can
         be used to tear down the pipeline needed for processing the IUs."""
-        pass
+        self.terminal_logger.info("shutdown")
+        self.file_logger.info("shutdown")
 
     def run(self, run_setup=True):
         """Run the processing pipeline of this module in a new thread. The
@@ -849,7 +910,7 @@ class AbstractModule:
                     buffer.get()
         self.event_call(self.EVENT_STOP)
 
-    def create_iu(self, grounded_in=None):
+    def create_iu(self, grounded_in=None, **kwargs):
         """Creates a new Incremental Unit that contains the information of the
         creator (the current module), the previous IU that was created in this
         module and the iu that it is based on.
@@ -872,9 +933,34 @@ class AbstractModule:
             iuid=f"{hash(self)}:{self.iu_counter}",
             previous_iu=self._previous_iu,
             grounded_in=grounded_in,
+            **kwargs,
         )
         self.iu_counter += 1
         self._previous_iu = new_iu
+
+        try:
+            self.terminal_logger.info(
+                "create_iu",
+                iuid=new_iu.iuid,
+                previous_iu=(
+                    new_iu.previous_iu.iuid if new_iu.previous_iu is not None else None
+                ),
+                grounded_in=(
+                    new_iu.grounded_in.iuid if new_iu.grounded_in is not None else None
+                ),
+            )
+            self.file_logger.info(
+                "create_iu",
+                iuid=new_iu.iuid,
+                previous_iu=(
+                    new_iu.previous_iu.iuid if new_iu.previous_iu is not None else None
+                ),
+                grounded_in=(
+                    new_iu.grounded_in.iuid if new_iu.grounded_in is not None else None
+                ),
+            )
+        except Exception as e:
+            log_exception(module=self, exception=e)
         return new_iu
 
     def latest_iu(self):
@@ -969,15 +1055,18 @@ class AbstractProducingModule(AbstractModule):
         self.prepare_run()
         self._is_running = True
         while self._is_running:
-            with self.mutex:
-                output_message = self.process_update(None)
-                if output_message:
-                    if output_message.has_valid_ius(self.output_iu()):
-                        self.append(output_message)
-                    else:
-                        raise TypeError(
-                            "This module should not produce IUs of this type."
-                        )
+            try:
+                with self.mutex:
+                    output_message = self.process_update(None)
+                    if output_message:
+                        if output_message.has_valid_ius(self.output_iu()):
+                            self.append(output_message)
+                        else:
+                            raise TypeError(
+                                "This module should not produce IUs of this type."
+                            )
+            except Exception as e:
+                log_exception(module=self, exception=e)
         self.shutdown()
 
     def process_update(self, update_message):
@@ -1040,8 +1129,11 @@ class AbstractTriggerModule(AbstractProducingModule):
         self.prepare_run()
         self._is_running = True
         while self._is_running:
-            with self.mutex:
-                time.sleep(0.05)
+            try:
+                with self.mutex:
+                    time.sleep(0.05)
+            except Exception as e:
+                log_exception(module=self, exception=e)
         self.shutdown()
 
     def process_update(self, update_message):

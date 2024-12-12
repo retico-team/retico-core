@@ -12,8 +12,19 @@
 #
 import os
 import sys
+from unittest.mock import MagicMock
 
-sys.modules["pyaudio"] = {}
+MOCK_MODULES = [
+    "pyaudio",
+    "torch",
+    "structlog",
+    "colorama",
+    "matplotlib",
+    "matplotlib.pyplot",
+    "matplotlib.dates",
+    "numpy",
+]
+sys.modules.update((mod_name, MagicMock()) for mod_name in MOCK_MODULES)
 
 sys.path.insert(0, os.path.abspath(os.path.join("..")))
 import retico_core
@@ -38,6 +49,11 @@ extensions = [
     "sphinx.ext.napoleon",
     "myst_parser",
     "sphinx.ext.autosectionlabel",
+]
+
+# MyST-Parser configurations (optional, for customizations)
+myst_enable_extensions = [
+    "colon_fence",  # Allows the use of :: fenced code blocks
 ]
 
 # Add any paths that contain templates here, relative to this directory.
