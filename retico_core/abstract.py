@@ -154,9 +154,7 @@ class IncrementalUnit:
         Returns:
             float: The age of the IU in seconds
         """
-        return datetime.datetime.now() - datetime.datetime.fromisoformat(
-            self.created_at
-        )
+        return datetime.datetime.now() - datetime.datetime.fromisoformat(self.created_at)
 
     def older_than(self, s):
         """Return whether the IU is older than s seconds.
@@ -227,9 +225,7 @@ class IncrementalUnit:
         import datetime
 
         payload = {}
-        payload["originatingTime"] = (
-            datetime.datetime.now().isoformat()
-        )  # zmq expected format
+        payload["originatingTime"] = datetime.datetime.now().isoformat()  # zmq expected format
         payload["message"] = self.payload
         payload["update_type"] = str(update_type)
         return payload
@@ -331,9 +327,7 @@ class UpdateMessage:
             update_type = UpdateType(update_type)
         self._msgs.append((iu, update_type))
 
-    def add_ius(
-        self, iu_list: list[tuple[IncrementalUnit, UpdateType]], strict_update_type=True
-    ):
+    def add_ius(self, iu_list: list[tuple[IncrementalUnit, UpdateType]], strict_update_type=True):
         """Adds a list of incremental units and according update types to the update
         message.
 
@@ -354,9 +348,7 @@ class UpdateMessage:
         """
         for iu, update_type in iu_list:
             if not isinstance(iu, IncrementalUnit):
-                raise TypeError(
-                    "IU is of type %s but should be IncrementalUnit" % type(iu)
-                )
+                raise TypeError("IU is of type %s but should be IncrementalUnit" % type(iu))
             if strict_update_type and not isinstance(update_type, UpdateType):
                 UpdateType(update_type)
         for iu, update_type in iu_list:
@@ -650,10 +642,7 @@ class AbstractModule:
         if not update_message:
             return
         if not isinstance(update_message, UpdateMessage):
-            raise TypeError(
-                "Update message is of type %s but should be UpdateMessage"
-                % type(update_message)
-            )
+            raise TypeError("Update message is of type %s but should be UpdateMessage" % type(update_message))
         for q in self._right_buffers:
             q.put(copy.copy(update_message))
 
@@ -824,9 +813,7 @@ class AbstractModule:
                                 if output_message.has_valid_ius(self.output_iu()):
                                     self.append(output_message)
                                 else:
-                                    raise TypeError(
-                                        "This module should not produce IUs of this type."
-                                    )
+                                    raise TypeError("This module should not produce IUs of this type.")
             except Exception as e:
                 log_exception(module=self, exception=e)
         self.shutdown()
@@ -942,22 +929,14 @@ class AbstractModule:
             self.terminal_logger.info(
                 "create_iu",
                 iuid=new_iu.iuid,
-                previous_iu=(
-                    new_iu.previous_iu.iuid if new_iu.previous_iu is not None else None
-                ),
-                grounded_in=(
-                    new_iu.grounded_in.iuid if new_iu.grounded_in is not None else None
-                ),
+                previous_iu=(new_iu.previous_iu.iuid if new_iu.previous_iu is not None else None),
+                grounded_in=(new_iu.grounded_in.iuid if new_iu.grounded_in is not None else None),
             )
             self.file_logger.info(
                 "create_iu",
                 iuid=new_iu.iuid,
-                previous_iu=(
-                    new_iu.previous_iu.iuid if new_iu.previous_iu is not None else None
-                ),
-                grounded_in=(
-                    new_iu.grounded_in.iuid if new_iu.grounded_in is not None else None
-                ),
+                previous_iu=(new_iu.previous_iu.iuid if new_iu.previous_iu is not None else None),
+                grounded_in=(new_iu.grounded_in.iuid if new_iu.grounded_in is not None else None),
             )
         except Exception as e:
             log_exception(module=self, exception=e)
@@ -1062,9 +1041,7 @@ class AbstractProducingModule(AbstractModule):
                         if output_message.has_valid_ius(self.output_iu()):
                             self.append(output_message)
                         else:
-                            raise TypeError(
-                                "This module should not produce IUs of this type."
-                            )
+                            raise TypeError("This module should not produce IUs of this type.")
             except Exception as e:
                 log_exception(module=self, exception=e)
         self.shutdown()

@@ -4,14 +4,14 @@ Log Utils Module
 
 This file defines the classes and functions of a new logging system for retico, which provides
 retico modules with the capacity to create structured (dictionary) log messages that they can either
-store in a log file, or print in the terminal. 
-The file is divided in 3 parts : 
+store in a log file, or print in the terminal.
+The file is divided in 3 parts :
 - Loggers & Functions : defines the terminal and file logger classes, and logging-related functions
 for retico modules.
-- Log filters : defines general filters that can be used in the log configuration to filter out the 
+- Log filters : defines general filters that can be used in the log configuration to filter out the
 desired log messages.
-- Plot logs : defines general functions used for retico system's execution vizualization (after 
-execution, or in real time during an execution). 
+- Plot logs : defines general functions used for retico system's execution vizualization (after
+execution, or in real time during an execution).
 """
 
 import datetime
@@ -21,6 +21,7 @@ from pathlib import Path
 import re
 import threading
 import time
+import colorama
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
@@ -45,6 +46,19 @@ class TerminalLogger(structlog.BoundLogger):
             else:
                 log_filters = LOG_FILTERS
 
+            cr = structlog.dev.ConsoleRenderer(colors=True)
+            cr._columns.append(
+                structlog.dev.Column(
+                    "module",
+                    structlog.dev.KeyValueColumnFormatter(
+                        key_style=colorama.Fore.CYAN,
+                        value_style=colorama.Fore.GREEN,
+                        reset_style=colorama.Style.RESET_ALL,
+                        value_repr=str,
+                    ),
+                ),
+            )
+
             # configure structlog to have a terminal logger
             processors = (
                 [
@@ -52,7 +66,7 @@ class TerminalLogger(structlog.BoundLogger):
                     structlog.processors.add_log_level,
                 ]
                 + log_filters
-                + [structlog.dev.ConsoleRenderer(colors=True)]
+                + [cr]
             )
             structlog.configure(
                 processors=processors,
@@ -83,9 +97,7 @@ class FileLogger(structlog.BoundLogger):
                     structlog.processors.ExceptionRenderer(),
                     structlog.processors.JSONRenderer(),
                 ],
-                logger_factory=structlog.WriteLoggerFactory(
-                    file=Path(log_path).open("wt", encoding="utf-8")
-                ),
+                logger_factory=structlog.WriteLoggerFactory(file=Path(log_path).open("wt", encoding="utf-8")),
                 cache_logger_on_first_use=True,
             )
             file_logger = structlog.get_logger("file_logger")
@@ -142,9 +154,7 @@ def log_exception(module, exception):
         module (object): the module that encountered the exception.
         exception (Exception): the encountered exception.
     """
-    module.terminal_logger.exception(
-        "The module encountered the following exception while running :"
-    )
+    module.terminal_logger.exception("The module encountered the following exception while running :")
     module.file_logger.exception(
         "The module encountered the following exception while running :",
     )
@@ -378,9 +388,7 @@ def store_log(
                 # print(
                 #     f"plot_config[module_name_in_config]['events'] {plot_config[module_name_in_config]['events']}"
                 # )
-                log_data["events"][event_name_for_plot]["plot_settings"] = events[
-                    event_name_in_config
-                ]["plot_settings"]
+                log_data["events"][event_name_for_plot]["plot_settings"] = events[event_name_in_config]["plot_settings"]
         log_data["events"][event_name_for_plot]["y_axis"].append(module_name_for_plot)
         log_data["events"][event_name_for_plot]["x_axis"].append(date)
     return log_data, is_event_in_config
@@ -425,9 +433,7 @@ def plot(
     with open(log_file_path, encoding="utf-8") as f:
         lines = f.readlines()
         first_line = lines[0]
-        first_line_date = datetime.datetime.fromisoformat(
-            json.loads(first_line)["timestamp"]
-        )
+        first_line_date = datetime.datetime.fromisoformat(json.loads(first_line)["timestamp"])
         # last_line = lines[-1]
         # last_line_date = datetime.datetime.fromisoformat(
         #     json.loads(last_line)["timestamp"]
@@ -512,12 +518,8 @@ def plot(
     # REORDER Y-AXIS
     # create a simulation axis to reorder the plot's y-axis (module names)
     # to respect the module order from the plot configuration file
-    module_order_y_axis = [
-        m.split(" ")[0] for m in plot_config.keys() if m != "any_module"
-    ][::-1]
-    dates_order_y_axis = [
-        mdates.date2num(first_line_date) for i in range(len(module_order_y_axis))
-    ]
+    module_order_y_axis = [m.split(" ")[0] for m in plot_config.keys() if m != "any_module"][::-1]
+    dates_order_y_axis = [mdates.date2num(first_line_date) for i in range(len(module_order_y_axis))]
     ax.plot(
         dates_order_y_axis,
         module_order_y_axis,
@@ -534,9 +536,7 @@ def plot(
         events = log_data["events"].keys()
         ordered_events = []
         for m_name_conf, m_data in plot_config.items():
-            m_name_plot = (
-                m_name_conf.split(" ")[0] if m_name_conf != "any_module" else ""
-            )
+            m_name_plot = m_name_conf.split(" ")[0] if m_name_conf != "any_module" else ""
             for e_name_conf, e_data in m_data["events"].items():
                 if "exclude" not in e_data:
                     for e_name_plot in events:
