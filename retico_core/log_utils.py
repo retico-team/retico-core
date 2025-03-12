@@ -46,23 +46,81 @@ class TerminalLogger(structlog.BoundLogger):
             else:
                 log_filters = LOG_FILTERS
 
-            cr = structlog.dev.ConsoleRenderer(colors=True)
-            cr._columns.append(
-                structlog.dev.Column(
-                    "module",
-                    structlog.dev.KeyValueColumnFormatter(
-                        key_style=colorama.Fore.CYAN,
-                        value_style=colorama.Fore.GREEN,
-                        reset_style=colorama.Style.RESET_ALL,
-                        value_repr=str,
+            def format_module(obj):
+                splitted = str(obj).split(" ")
+                if splitted[-1] == "Module":
+                    splitted.pop(-1)
+                return " ".join(splitted)
+
+            def format_timestamp(obj):
+                return str(obj[:-4])
+
+            def format_on_type(obj):
+                if isinstance(obj, bool):
+                    return " ( " + str(obj) + " ) "
+                if isinstance(obj, int):
+                    return " | " + str(obj) + " | "
+                return " " + str(obj)
+
+            cr = structlog.dev.ConsoleRenderer(
+                colors=True,
+                columns=[
+                    structlog.dev.Column(
+                        "timestamp",
+                        structlog.dev.KeyValueColumnFormatter(
+                            key_style=None,
+                            value_style=colorama.Style.BRIGHT + colorama.Fore.BLACK,
+                            reset_style=colorama.Style.RESET_ALL,
+                            value_repr=format_timestamp,
+                        ),
                     ),
-                ),
+                    structlog.dev.Column(
+                        "level",
+                        structlog.dev.LogLevelColumnFormatter(
+                            level_styles={
+                                key: colorama.Style.BRIGHT + level
+                                for key, level in structlog.dev.ConsoleRenderer.get_default_level_styles().items()
+                            },
+                            reset_style=colorama.Style.BRIGHT + colorama.Style.RESET_ALL,
+                            width=None,
+                        ),
+                    ),
+                    structlog.dev.Column(
+                        "module",
+                        structlog.dev.KeyValueColumnFormatter(
+                            key_style=None,
+                            value_style=colorama.Fore.YELLOW,
+                            reset_style=colorama.Style.RESET_ALL,
+                            value_repr=format_module,
+                            width=10,
+                        ),
+                    ),
+                    structlog.dev.Column(
+                        "event",
+                        structlog.dev.KeyValueColumnFormatter(
+                            key_style=None,
+                            value_style=colorama.Style.BRIGHT + colorama.Fore.WHITE,
+                            reset_style=colorama.Style.RESET_ALL,
+                            value_repr=str,
+                            width=40,
+                        ),
+                    ),
+                    structlog.dev.Column(
+                        "",
+                        structlog.dev.KeyValueColumnFormatter(
+                            key_style=colorama.Fore.MAGENTA,
+                            value_style=colorama.Style.BRIGHT + colorama.Fore.CYAN,
+                            reset_style=colorama.Style.RESET_ALL,
+                            value_repr=format_on_type,
+                        ),
+                    ),
+                ],
             )
 
             # configure structlog to have a terminal logger
             processors = (
                 [
-                    structlog.processors.TimeStamper(fmt="iso"),
+                    structlog.processors.TimeStamper(fmt="%H:%M:%S.%f"),
                     structlog.processors.add_log_level,
                 ]
                 + log_filters
