@@ -126,6 +126,7 @@ class TerminalLogger(structlog.BoundLogger):
                 + log_filters
                 + [cr]
             )
+
             structlog.configure(
                 processors=processors,
                 wrapper_class=structlog.stdlib.BoundLogger,
