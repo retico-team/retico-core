@@ -27,7 +27,7 @@ long_description = (here / "README.md").read_text(encoding="utf-8")
 
 
 install_requires = [
-    # "pyaudio",
+    "pyaudio",
     "structlog",
     "colorama",
     "matplotlib",
@@ -35,18 +35,18 @@ install_requires = [
 ]
 
 # Determine the operating system
-# print(f"System OS : {platform.system()}")
-# is_linux = platform.system().lower() == "linux"
-# if is_linux:
-#     # If Linux, attempt to install pyaudio via apt
-#     try:
-#         print(
-#             "Detected Linux OS. Installing portaudio via apt to make it possible to install pyaudio with pip afterwards"
-#         )
-#         subprocess.run(["apt", "install", "-y", "portaudio19-dev"], check=True)
-#         subprocess.run(["conda", "install", "pyaudio"], check=True)
-#     except Exception as e:
-#         print(f"Failed to install portaudio via apt: {e}")
+print(f"System OS : {platform.system()}")
+is_linux = platform.system().lower() == "linux"
+if is_linux:
+    # If Linux, attempt to install pyaudio via apt
+    try:
+        print(
+            "Detected Linux OS. Installing portaudio via apt to make it possible to install pyaudio with pip afterwards"
+        )
+        # subprocess.run(["apt", "install", "-y", "portaudio19-dev"], check=True)
+        subprocess.run(["conda", "install", "pyaudio"], check=True)
+    except Exception as e:
+        print(f"Failed to install portaudio via apt: {e}")
 
 config = {
     "description": "A framework for real time incremental dialogue processing.",
