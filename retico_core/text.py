@@ -302,10 +302,7 @@ class IncrementalizeASRModule(retico_core.AbstractModule):
 
     @staticmethod
     def description():
-        return (
-            "A module that takes SpeechRecognitionIUs and emits only the "
-            + "increments from the previous iu"
-        )
+        return "A module that takes SpeechRecognitionIUs and emits only the " + "increments from the previous iu"
 
     @staticmethod
     def input_ius():
@@ -328,9 +325,7 @@ class IncrementalizeASRModule(retico_core.AbstractModule):
                 continue
             current_text = iu.get_text()
             if self.current_input:
-                um, current_text = retico_core.text.get_text_increment(
-                    self, current_text
-                )
+                um, current_text = retico_core.text.get_text_increment(self, current_text)
             if len(current_text) == 0:
                 continue
 

@@ -11,6 +11,7 @@ import queue
 import time
 import wave
 import platform
+import keyboard
 
 import pyaudio
 
@@ -90,11 +91,13 @@ class AudioIU(retico_core.IncrementalUnit):
 
     def set_audio(self, raw_audio, nframes, rate, sample_width):
         """Sets the audio content of the IU."""
-        self.raw_audio = raw_audio
-        self.payload = raw_audio
-        self.nframes = int(nframes)
-        self.rate = int(rate)
-        self.sample_width = int(sample_width)
+        self.set_data(
+            raw_audio=raw_audio,
+            payload=raw_audio,
+            nframes=int(nframes),
+            rate=int(rate),
+            sample_width=int(sample_width),
+        )
 
     def audio_length(self):
         """Return the length of the audio IU in seconds.
@@ -147,8 +150,10 @@ class DispatchedAudioIU(AudioIU):
             is_dispatching (bool): Whether or not the dispatcher is currently
                 dispatching
         """
-        self.completion = completion
-        self.is_dispatching = is_dispatching
+        self.set_data(
+            completion=completion,
+            is_dispatching=is_dispatching,
+        )
 
 
 class MicrophoneModule(retico_core.AbstractProducingModule):
@@ -205,8 +210,6 @@ class MicrophoneModule(retico_core.AbstractProducingModule):
             sample = self.audio_buffer.get(timeout=1.0)
         except queue.Empty:
             return None
-        # output_iu = self.create_iu()
-        # output_iu.set_audio(sample, self.chunk_size, self.rate, self.sample_width)
         output_iu = self.create_iu(
             raw_audio=sample,
             nframes=self.chunk_size,
@@ -265,14 +268,7 @@ class SpeakerModule(retico_core.AbstractConsumingModule):
     def output_iu():
         return None
 
-    def __init__(
-        self,
-        rate=44100,
-        sample_width=2,
-        use_speaker="both",
-        device_index=None,
-        **kwargs
-    ):
+    def __init__(self, rate=44100, sample_width=2, use_speaker="both", device_index=None, **kwargs):
         super().__init__(**kwargs)
         self.rate = rate
         self.sample_width = sample_width
@@ -445,9 +441,7 @@ class AudioDispatcherModule(retico_core.AbstractModule):
 
     @staticmethod
     def description():
-        return (
-            "A module that transmits audio by splitting it up into" "streamable pakets."
-        )
+        return "A module that transmits audio by splitting it up into" "streamable pakets."
 
     @staticmethod
     def input_ius():
@@ -574,9 +568,7 @@ class AudioDispatcherModule(retico_core.AbstractModule):
                 if self._is_dispatching:
                     if self.audio_buffer:
                         self.append(
-                            retico_core.UpdateMessage.from_iu(
-                                self.audio_buffer.pop(0), retico_core.UpdateType.ADD
-                            )
+                            retico_core.UpdateMessage.from_iu(self.audio_buffer.pop(0), retico_core.UpdateType.ADD)
                         )
                     else:
                         self._is_dispatching = False
@@ -599,11 +591,7 @@ class AudioDispatcherModule(retico_core.AbstractModule):
                             rate=self.rate,
                             sample_width=self.sample_width,
                         )
-                        self.append(
-                            retico_core.UpdateMessage.from_iu(
-                                current_iu, retico_core.UpdateType.ADD
-                            )
-                        )
+                        self.append(retico_core.UpdateMessage.from_iu(current_iu, retico_core.UpdateType.ADD))
             time.sleep((self.target_chunk_size / self.rate) / self.speed)
 
     def prepare_run(self):
@@ -664,3 +652,52 @@ class AudioRecorderModule(retico_core.AbstractConsumingModule):
 
     def shutdown(self):
         self.wavfile.close()
+
+
+class MicrophonePTTModule(MicrophoneModule):
+    """A modules overrides the MicrophoneModule which captures audio signal from the microphone and chunks the audio signal into AudioIUs.
+    The addition of this module is the introduction of the push-to-talk capacity : the microphone's audio signal is captured only while the M key is pressed.
+    """
+
+    def __init__(self, key="m", **kwargs):
+        """
+        Initialize the Push-To-Talk Microphone Module.
+
+        Args:
+            key (string): Key used for Push-To-Talk.
+        """
+        super().__init__(**kwargs)
+        self.key = key
+
+    def callback(self, in_data, frame_count, time_info, status):
+        """The callback function that gets called by pyaudio.
+
+        Args:
+            in_data (bytes[]): The raw audio that is coming in from the
+                microphone
+            frame_count (int): The number of frames that are stored in in_data
+        """
+        if keyboard.is_pressed(self.key):
+            self.audio_buffer.put(in_data)
+        else:
+            self.audio_buffer.put(b"\x00" * self.sample_width * self.chunk_size)
+        return (in_data, pyaudio.paContinue)
+
+    def process_update(self, _):
+        """
+        Returns:
+            UpdateMessage: list of AudioIUs produced from the microphone's audio signal.
+        """
+        if not self.audio_buffer:
+            return None
+        try:
+            sample = self.audio_buffer.get(timeout=1.0)
+        except queue.Empty:
+            return None
+        output_iu = self.create_iu(
+            raw_audio=sample,
+            nframes=self.chunk_size,
+            rate=self.rate,
+            sample_width=self.sample_width,
+        )
+        return retico_core.UpdateMessage.from_iu(output_iu, retico_core.UpdateType.ADD)

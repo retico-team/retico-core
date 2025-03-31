@@ -148,6 +148,9 @@ class IncrementalUnit:
             grounded_in = grounded_in.grounded_in
             current_depth += 1
 
+    def set_data(self, **kwargs):
+        self.__dict__.update(kwargs)
+
     def age(self):
         """Returns the age of the IU in seconds.
 
