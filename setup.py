@@ -31,6 +31,7 @@ install_requires = [
     "structlog",
     "colorama",
     "matplotlib",
+    "keyboard",
 ]
 
 # Determine the operating system
@@ -43,6 +44,7 @@ install_requires = [
 #             "Detected Linux OS. Installing portaudio via apt to make it possible to install pyaudio with pip afterwards"
 #         )
 #         subprocess.run(["apt", "install", "-y", "portaudio19-dev"], check=True)
+#         subprocess.run(["conda", "install", "pyaudio"], check=True)
 #     except Exception as e:
 #         print(f"Failed to install portaudio via apt: {e}")
 
