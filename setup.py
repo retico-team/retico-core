@@ -1,13 +1,7 @@
-#!/usr/bin/env python3
-
-"""
-Setup script.
-
-Use this script to install the core of the retico simulation framework. Usage:
-    $ python3 setup.py install
-
-Author: Thilo Michael (uhlomuhlo@gmail.com)
-"""
+from setuptools import setup
+from setuptools.command.install import install
+import sys
+import subprocess
 
 try:
     from setuptools import setup, find_packages
@@ -16,10 +10,7 @@ except ImportError:
 
 exec(open("retico_core/version.py").read())
 
-import os
 import pathlib
-import platform
-import subprocess
 
 here = pathlib.Path(__file__).parent.resolve()
 
@@ -27,26 +18,24 @@ long_description = (here / "README.md").read_text(encoding="utf-8")
 
 
 install_requires = [
-    "pyaudio",
     "structlog",
     "colorama",
     "matplotlib",
     "keyboard",
 ]
 
-# Determine the operating system
-print(f"System OS : {platform.system()}")
-is_linux = platform.system().lower() == "linux"
-if is_linux:
-    # If Linux, attempt to install pyaudio via apt
-    try:
-        print(
-            "Detected Linux OS. Installing portaudio via apt to make it possible to install pyaudio with pip afterwards"
-        )
-        # subprocess.run(["apt", "install", "-y", "portaudio19-dev"], check=True)
-        subprocess.run(["conda", "install", "pyaudio"], check=True)
-    except Exception as e:
-        print(f"Failed to install portaudio via apt: {e}")
+
+class CustomInstall(install):
+    def run(self):
+        install.run(self)
+        print(f"System OS : {sys.platform}")
+        if sys.platform.startswith("linux"):
+            print("Detected Linux: Installing pyaudio via Conda...")
+            subprocess.run(["conda", "install", "-c", "conda-forge", "-y", "pyaudio"], check=True)
+        else:
+            print("Detected non-Linux: Installing pyaudio via pip...")
+            subprocess.run([sys.executable, "-m", "pip", "install", "pyaudio"], check=True)
+
 
 config = {
     "description": "A framework for real time incremental dialogue processing.",
@@ -68,6 +57,9 @@ config = {
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: Apache Software License",
     ],
+    "cmdclass": {
+        "install": CustomInstall,
+    },
 }
 
 setup(**config)
