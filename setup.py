@@ -29,7 +29,7 @@ install_requires = [
 class CustomInstall(install):
     def run(self):
         install.run(self)
-        subprocess.run([sys.executable, "core/post_install.py"], check=True)
+        subprocess.run([sys.executable, "post_install.py"], check=True)
 
 
 config = {
