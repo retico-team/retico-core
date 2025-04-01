@@ -18,7 +18,6 @@ long_description = (here / "README.md").read_text(encoding="utf-8")
 
 
 install_requires = [
-    # "pyaudio",
     "structlog",
     "colorama",
     "matplotlib",
@@ -27,12 +26,6 @@ install_requires = [
 
 
 class CustomInstall(install):
-    def run(self):
-        install.run(self)
-        subprocess.run([sys.executable, "post_install.py"], check=True)
-
-
-class CustomInstall2(install):
     def run(self):
         install.run(self)
         print(f"System OS : {sys.platform}")
@@ -65,7 +58,7 @@ config = {
         "License :: OSI Approved :: Apache Software License",
     ],
     "cmdclass": {
-        "install": CustomInstall2,
+        "install": CustomInstall,
     },
 }
 
