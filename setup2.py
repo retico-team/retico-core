@@ -1,7 +1,13 @@
-from setuptools import setup
-from setuptools.command.install import install
-import sys
-import subprocess
+#!/usr/bin/env python3
+
+"""
+Setup script.
+
+Use this script to install the core of the retico simulation framework. Usage:
+    $ python3 setup.py install
+
+Author: Thilo Michael (uhlomuhlo@gmail.com)
+"""
 
 try:
     from setuptools import setup, find_packages
@@ -10,7 +16,10 @@ except ImportError:
 
 exec(open("retico_core/version.py").read())
 
+import os
 import pathlib
+import platform
+import subprocess
 
 here = pathlib.Path(__file__).parent.resolve()
 
@@ -18,19 +27,26 @@ long_description = (here / "README.md").read_text(encoding="utf-8")
 
 
 install_requires = [
-    # "pyaudio",
+    "pyaudio",
     "structlog",
     "colorama",
     "matplotlib",
     "keyboard",
 ]
 
-
-class CustomInstall(install):
-    def run(self):
-        install.run(self)
-        subprocess.run([sys.executable, "core/post_install.py"], check=True)
-
+# Determine the operating system
+print(f"System OS : {platform.system()}")
+is_linux = platform.system().lower() == "linux"
+if is_linux:
+    # If Linux, attempt to install pyaudio via apt
+    try:
+        print(
+            "Detected Linux OS. Installing portaudio via apt to make it possible to install pyaudio with pip afterwards"
+        )
+        # subprocess.run(["apt", "install", "-y", "portaudio19-dev"], check=True)
+        subprocess.run(["conda", "install", "pyaudio"], check=True)
+    except Exception as e:
+        print(f"Failed to install portaudio via apt: {e}")
 
 config = {
     "description": "A framework for real time incremental dialogue processing.",
@@ -52,9 +68,6 @@ config = {
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: Apache Software License",
     ],
-    "cmdclass": {
-        "install": CustomInstall,
-    },
 }
 
 setup(**config)
