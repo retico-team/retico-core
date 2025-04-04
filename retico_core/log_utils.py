@@ -748,7 +748,8 @@ def plot_once(plot_config_path, log_file_path=None, plot_saving_path=None):
 def setup_plot_live():
     """a function that initializes and starts a thread from the looping function `plot_live`, to
     create a plot from the log_file in real time passively."""
-    threading.Thread(target=plot_live).start()
+    if THREAD_ACTIVE:
+        threading.Thread(target=plot_live).start()
 
 
 def stop_plot_live():
