@@ -17,12 +17,7 @@ here = pathlib.Path(__file__).parent.resolve()
 long_description = (here / "README.md").read_text(encoding="utf-8")
 
 
-install_requires = [
-    "structlog",
-    "colorama",
-    "matplotlib",
-    "keyboard",
-]
+install_requires = ["structlog", "colorama", "matplotlib", "keyboard", "numpy", "soundfile", "librosa"]
 
 
 class CustomInstall(install):

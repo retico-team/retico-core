@@ -6,14 +6,18 @@ This module defines basic incremental units and incremental modules to handle
 audio input (via a standard microphone) and output.
 """
 
+import io
+import os
 import threading
 import queue
 import time
 import wave
 import platform
 import keyboard
-
+import librosa
 import pyaudio
+import numpy as np
+import soundfile as sf
 
 import retico_core
 
@@ -701,3 +705,174 @@ class MicrophonePTTModule(MicrophoneModule):
             sample_width=self.sample_width,
         )
         return retico_core.UpdateMessage.from_iu(output_iu, retico_core.UpdateType.ADD)
+
+        #############
+        # Audio Utils
+        #############
+
+        """
+        There is 2 commonly used format for audio data, the following functions provides you with the ability to convert between them, or load file in a specific format.
+        - PCM16: audio data as int16 PCM bytes, commonly used to write or play raw audio as 16-bit PCM
+        - float32: audio data as float32 np array, commonly used to process/analyze audio in standard float format.
+        - (BONUS) WAVPCM16: audio data as int16 PCM bytes (just like PCM16), but containing the headers, and metadata used by several programms to play audio. It is the format you get when you open the .wav file as bytes in python.
+        """
+
+
+def resample_audio_file(src: str, dst: str, outrate: int = 16000):
+    """Resample the audio's frame_rate to correspond to
+    self.target_framerate.
+
+    Args:
+        src (str): source file to resample
+        dst (_type_): destination file to write resampled audio in
+        outrate (int, optional): The target samplerate. Defaults to 16000.
+    """
+    if not os.path.exists(src):
+        print("Source not found!")
+        return False
+
+    if not os.path.exists(os.path.dirname(dst)):
+        os.makedirs(os.path.dirname(dst))
+
+    try:
+        audio, sr = librosa.load(src, sr=None)
+        print(sr)
+    except:
+        print("Failed to open source file!")
+        return False
+
+    resampled_audio = librosa.resample(audio, orig_sr=sr, target_sr=outrate)
+
+    try:
+        sf.write(dst, resampled_audio, outrate)
+    except:
+        print("Failed to write wav")
+        return False
+
+
+def resample_audio(raw_audio: bytes, inrate: int, outrate: int):
+    """Resample the audio's frame_rate to correspond to outrate.
+
+    Args:
+        raw_audio (bytes): the audio received from the microphone that
+            could need resampling.
+        inrate (int): the original samplerate
+        outrate (int): the target samplerate
+
+    Returns:
+        bytes: resampled audio bytes
+    """
+    audio_np = convert_audio_PCM16_to_float32(raw_audio)
+    resampled_audio = librosa.resample(audio_np, orig_sr=inrate, target_sr=outrate)
+    return convert_audio_float32_to_PCM16(resampled_audio)
+
+
+def get_sf_sample_width(subtype: str):
+    return {"PCM_16": 2, "PCM_24": 3, "PCM_32": 4, "FLOAT": 4, "DOUBLE": 8}.get(subtype, None)
+
+
+def load_audiofile_float32(file_path: str):
+    audio_data, fs = sf.read(file_path)
+    infos = sf.info(file_path)
+    metadata = {
+        "nframes": infos.frames,
+        "rate": fs,
+        "sampwidth": get_sf_sample_width(infos.subtype),
+        "n_channels": infos.channels,
+    }
+    return audio_data, metadata
+
+
+def load_audiofile_PCM16(file_path: str):
+    with wave.open(file_path, "rb") as wf:
+        metadata = {
+            "nframes": wf.getnframes(),
+            "rate": wf.getframerate(),
+            "sampwidth": wf.getsampwidth(),
+            "n_channels": wf.getnchannels(),
+        }
+        audio_data = wf.readframes(wf.getnframes())
+    return audio_data, metadata
+
+
+def load_audiofile_WAVPCM16(file_path: str):
+    with open(file_path, "rb") as f:
+        return f.read(), {}
+
+
+def convert_audio_float32_to_PCM16(raw_audio: object, clip: bool = False):
+    """Convert the audio from float32 np array to PCM int16 bytes.
+
+    Args:
+        raw_audio (ArrayLike): ArrayLike audio bytes to format.
+        clip (bool, optional): Boolean to set to clip the audio bytes. Defaults to False.
+
+    Returns:
+        bytes: audio bytes formatted to PCM int16.
+    """
+    if clip:
+        float_audio = np.clip(raw_audio, -1.0, 1.0)  # optional but good practice
+    else:
+        float_audio = np.array(raw_audio)
+    return (float_audio * 32768).astype(np.int16).tobytes()
+
+
+def convert_audio_PCM16_to_float32(raw_audio: bytes):
+    """Convert the audio from PCM int16 bytes to float32 np array.
+
+    Args:
+        raw_audio (bytes): audio bytes to format.
+
+    Returns:
+        ArrayLike: Audio data formatted as a float32 np.array.
+    """
+
+    return np.frombuffer(raw_audio, dtype=np.int16).astype(np.float32) / 32768.0
+
+
+def convert_audio_float32_to_WAVPCM16(raw_audio: object, samplerate: int = 16000):
+    """Convert the audio from float32 np array to PCM int16 bytes. (adding headers, etc).
+
+    Args:
+        raw_audio (ArrayLike): ArrayLike audio bytes to format.
+        samplerate (int, optional): The target samplerate. Defaults to 16000.
+
+    Returns:
+        bytes: audio bytes formatted to WAV PCM int16.
+    """
+    buffer = io.BytesIO()
+    sf.write(buffer, raw_audio, samplerate=samplerate, format="WAV", subtype="PCM_16")
+    return buffer.getvalue()
+
+
+def convert_audio_PCM16_to_WAVPCM16(
+    raw_audio: bytes, sample_rate: int = 16000, num_channels: int = 1, sampwidth: int = 2
+):
+    """Convert the audio from PCM int16 bytes to WAV PCM int16. (adding headers, etc).
+
+    Args:
+        raw_audio (bytes): audio bytes to format.
+
+    Returns:
+        bytes: audio bytes formatted to WAV PCM int16.
+    """
+    buffer = io.BytesIO()
+    with wave.open(buffer, "wb") as wav_file:
+        wav_file.setnchannels(num_channels)
+        wav_file.setsampwidth(sampwidth)  # 2 bytes for int16
+        wav_file.setframerate(sample_rate)
+        wav_file.writeframes(raw_audio)
+    return buffer.getvalue()
+
+
+def convert_audio_PCM16_to_WAVPCM16_2(raw_audio: bytes, samplerate: int = 16000):
+    """Convert the audio from PCM int16 bytes to float32 np array. (adding headers, etc).
+
+    Args:
+        raw_audio (bytes): audio bytes to format.
+
+    Returns:
+        bytes: audio bytes formatted to WAV PCM int16.
+    """
+    float32_data = convert_audio_PCM16_to_float32(raw_audio)
+    return convert_audio_float32_to_WAVPCM16(float32_data, samplerate=samplerate)
