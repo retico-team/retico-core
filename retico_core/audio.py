@@ -706,16 +706,17 @@ class MicrophonePTTModule(MicrophoneModule):
         )
         return retico_core.UpdateMessage.from_iu(output_iu, retico_core.UpdateType.ADD)
 
-        #############
-        # Audio Utils
-        #############
 
-        """
-        There is 2 commonly used format for audio data, the following functions provides you with the ability to convert between them, or load file in a specific format.
-        - PCM16: audio data as int16 PCM bytes, commonly used to write or play raw audio as 16-bit PCM
-        - float32: audio data as float32 np array, commonly used to process/analyze audio in standard float format.
-        - (BONUS) WAVPCM16: audio data as int16 PCM bytes (just like PCM16), but containing the headers, and metadata used by several programms to play audio. It is the format you get when you open the .wav file as bytes in python.
-        """
+#############
+# Audio Utils
+#############
+
+"""
+There is 2 commonly used format for audio data, the following functions provides you with the ability to convert between them, or load file in a specific format.
+- PCM16: audio data as int16 PCM bytes, commonly used to write or play raw audio as 16-bit PCM
+- float32: audio data as float32 np array, commonly used to process/analyze audio in standard float format.
+- (BONUS) WAVPCM16: audio data as int16 PCM bytes (just like PCM16), but containing the headers, and metadata used by several programms to play audio. It is the format you get when you open the .wav file as bytes in python.
+"""
 
 
 def resample_audio_file(src: str, dst: str, outrate: int = 16000):
