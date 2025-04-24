@@ -34,7 +34,7 @@ import structlog
 #####################
 
 
-class TerminalLogger(structlog.BoundLogger):
+class BoundLoggerTerminalWrapper(structlog.BoundLogger):
     """Dectorator / Singleton class of structlog.BoundLogger, that is used to configure / initialize
     once the terminal logger for the whole system."""
 
@@ -141,17 +141,60 @@ class TerminalLogger(structlog.BoundLogger):
         return cls.instance
 
 
-class FileLogger(structlog.BoundLogger):
+class TerminalLogger:
+
+    def __init__(self, verbosity_level=0, filters=None, **kwargs):
+        self.verbosity_level = verbosity_level
+        self.logger = BoundLoggerTerminalWrapper(filters=filters, **kwargs)
+
+    def _wrap(self, level_name, event, *args, **kwargs):
+        if self.verbosity_level == 0:
+            return None
+        elif self.verbosity_level == 1 and level_name == "debug":
+            super_method = getattr(self.logger, level_name)
+            return super_method(event, *args, **kwargs)
+        else:
+            super_method = getattr(self.logger, level_name)
+            return super_method(event, *args, **kwargs)
+
+    def info(self, event=None, *args, **kwargs):
+        return self._wrap("info", event, *args, **kwargs)
+
+    def debug(self, event=None, *args, **kwargs):
+        return self._wrap("debug", event, *args, **kwargs)
+
+    def warning(self, event=None, *args, **kwargs):
+        return self._wrap("warning", event, *args, **kwargs)
+
+    def error(self, event=None, *args, **kwargs):
+        return self._wrap("error", event, *args, **kwargs)
+
+    def critical(self, event=None, *args, **kwargs):
+        return self._wrap("critical", event, *args, **kwargs)
+
+    def exception(self, event=None, *args, **kwargs):
+        return self._wrap("exception", event, *args, **kwargs)
+
+
+class BoundLoggerFileWrapper(structlog.BoundLogger):
     """Dectorator / Singleton class of structlog.BoundLogger, that is used to configure / initialize
     once the file logger for the whole system."""
 
-    def __new__(cls, log_path="logs/run"):
+    def __new__(cls, log_path="logs/run", filters=None, verbosity_level=0):
         if not hasattr(cls, "instance"):
+            # Define filters for the terminal logs
+            if filters is not None:
+                log_filters = filters
+            else:
+                log_filters = LOG_FILTERS
             # configure structlog to have a file logger
             structlog.configure(
                 processors=[
                     structlog.processors.add_log_level,
                     structlog.processors.TimeStamper(fmt="iso"),
+                ]
+                + log_filters
+                + [
                     structlog.processors.ExceptionRenderer(),
                     structlog.processors.JSONRenderer(),
                 ],
@@ -165,7 +208,43 @@ class FileLogger(structlog.BoundLogger):
 
             # set the singleton instance
             cls.instance = file_logger
+            cls.instance.verbosity_level = verbosity_level
         return cls.instance
+
+
+class FileLogger:
+
+    def __init__(self, verbosity_level=0, filters=None, **kwargs):
+        self.verbosity_level = verbosity_level
+        self.logger = BoundLoggerFileWrapper(filters=filters, **kwargs)
+
+    def _wrap(self, level_name, event, *args, **kwargs):
+        if self.verbosity_level == 0:
+            return None
+        elif self.verbosity_level == 1 and level_name == "debug":
+            super_method = getattr(self.logger, level_name)
+            return super_method(event, *args, **kwargs)
+        else:
+            super_method = getattr(self.logger, level_name)
+            return super_method(event, *args, **kwargs)
+
+    def info(self, event=None, *args, **kwargs):
+        return self._wrap("info", event, *args, **kwargs)
+
+    def debug(self, event=None, *args, **kwargs):
+        return self._wrap("debug", event, *args, **kwargs)
+
+    def warning(self, event=None, *args, **kwargs):
+        return self._wrap("warning", event, *args, **kwargs)
+
+    def error(self, event=None, *args, **kwargs):
+        return self._wrap("error", event, *args, **kwargs)
+
+    def critical(self, event=None, *args, **kwargs):
+        return self._wrap("critical", event, *args, **kwargs)
+
+    def exception(self, event=None, *args, **kwargs):
+        return self._wrap("exception", event, *args, **kwargs)
 
 
 def create_new_log_folder(log_folder):
@@ -188,7 +267,7 @@ def create_new_log_folder(log_folder):
     return filepath
 
 
-def configurate_logger(log_path="logs/run", filters=None):
+def configurate_logger(log_path="logs/run", filters=None, filters_terminal=None, filters_file=None, verbosity_level=0):
     """
     Configure structlog's logger and set general logging args (timestamps,
     log level, etc.)
@@ -198,8 +277,12 @@ def configurate_logger(log_path="logs/run", filters=None):
         filters: (list): list of function that filters logs that will be outputted in the terminal.
     """
     log_path = create_new_log_folder(log_path)
-    terminal_logger = TerminalLogger(filters=filters)
-    file_logger = FileLogger(log_path)
+    terminal_logger = TerminalLogger(
+        verbosity_level=verbosity_level, filters=filters if filters is not None else filters_terminal
+    )
+    file_logger = FileLogger(
+        log_path=log_path, verbosity_level=verbosity_level, filters=filters if filters is not None else filters_file
+    )
     return terminal_logger, file_logger
 
 
@@ -399,9 +482,9 @@ def filter_all_but_warnings_and_errors(_, __, event_dict):
     return filter_cases(_, _, event_dict, cases=cases)
 
 
-# LOG_FILTERS = []
+LOG_FILTERS = []
 # LOG_FILTERS = [filter_all_from_modules]
-LOG_FILTERS = [filter_all_but_warnings_and_errors]
+# LOG_FILTERS = [filter_all_but_warnings_and_errors]
 
 
 ###########
@@ -486,7 +569,7 @@ def plot(
         last line processed. Used to only process new logs at each plot_live loop.
     """
     nb_pb_line = 0
-    terminal_logger = TerminalLogger()
+    terminal_logger = BoundLoggerTerminalWrapper()
 
     with open(log_file_path, encoding="utf-8") as f:
         lines = f.readlines()

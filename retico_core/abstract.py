@@ -473,7 +473,7 @@ class AbstractModule:
                 d[k] = v
         return d
 
-    def __init__(self, queue_class=IncrementalQueue, meta_data={}, **kwargs):
+    def __init__(self, queue_class=IncrementalQueue, verbosity_level=0, meta_data={}, **kwargs):
         """Initialize the module with a default IncrementalQueue.
 
         Args:
@@ -507,8 +507,9 @@ class AbstractModule:
         self.iu_counter = 0
 
         # set up logger
-        self.terminal_logger = TerminalLogger()
-        self.file_logger = FileLogger()
+        self.verbosity_level = verbosity_level
+        self.terminal_logger = TerminalLogger(verbosity_level=verbosity_level)
+        self.file_logger = FileLogger(verbosity_level=verbosity_level)
         self.terminal_logger = self.terminal_logger.bind(module=self.name())
         self.file_logger = self.file_logger.bind(module=self.name())
         self.file_logger.info("init")
