@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=80", "setuptools-scm[simple]>=8"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "retico-core"
+dynamic = ["version"]
+dependencies = [
+    "pyaudio>=0.2.12",
+]
+authors = [
+    {name = "Thilo Michael", email = "uhlomuhlo@gmail.com"},
+]
+description = "A framework for real time incremental dialogue processing."
+readme = "README.md"
+license = { file = "LICENSE" }
+keywords = ["retico", "framework", "incremental", "dialogue", "dialog"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: Apache Software License",
+]
+
