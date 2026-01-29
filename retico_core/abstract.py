@@ -739,6 +739,8 @@ class AbstractModule:
         self.prepare_run()
         self._is_running = True
         while self._is_running:
+            # When buffer is empty the loop is too tight and chokes the entire system. (Loop executes without releasing resources to the OS)
+            time.sleep(0.00001)
             for buffer in self._left_buffers:
                 with self.mutex:
                     try:
