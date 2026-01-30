@@ -211,7 +211,7 @@ class IncrementalUnit:
         if not isinstance(other, IncrementalUnit):
             return False
         return self.iuid == other.iuid
-    
+
     def to_zmq(self, update_type):
         """
         returns a formatted string that can be sent across zeromq
@@ -222,7 +222,7 @@ class IncrementalUnit:
         payload["message"] = self.payload
         payload["update_type"] = str(update_type)
         return payload
-    
+
     def from_zmq(self, zmq_data):
         """
         reconstitues an IU from a formatted zeromq string
@@ -238,6 +238,42 @@ class IncrementalUnit:
         """
         raise NotImplementedError()
 
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        """
+        Will recursively call __getstate__ for any objects contained. When testing, simply calling .__getstate__() does
+        not show the impact of the recursive calls, must call pickle.loads(pickle.dumps(<object>)) and check the output. 
+        """
+        # Don't (can't) pickle mutex
+        del state['mutex']
+        # Both creator and _processed list hold AbstractModule objects.
+        # While we _can_ add get/set state to AbstractModule and drop the related mutex, there are still challenges
+        # because of IncrementalQueue and any class level attributes the modules inheriting AbstractModule would
+        # bring along. If it is determined that we need to be passing the modules, each abstract module would
+        # likely need to implement its own get/set state for pickling.
+        del state['_processed_list'] # Until there is a compelling reason to keep this, it's far easier to remove, there are lots of nested mutex vals
+        # Pass creator name to maintain log trail of module history
+        state['creator_name'] = state['creator'].name()
+        # Pass creator description so we can include note about IU having been sent over ZMQ
+        state['creator_description'] = (state['creator'].description()
+                                        + ' [NOTE: IU has been sent over ZMQ. Creator object was dropped during serialization.]')
+        del state['creator']
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+
+        # Add mutex back since it doesn't exist in the pickle
+        self.mutex = threading.Lock()
+        self._processed_list = []
+        self.creator = AbstractModule
+        # Dynamically create a class (the arguments are name, base classes, class dictionary).
+        # The type function tells what kind of data an object is or creates a new class dynamically
+        # https://docs.python.org/3/library/functions.html#type
+        # Note: I chose to put this here instead of creating another class in abstract because I do not want it used
+        # in any other scenarios throughout retico - this is a very specific (and not really ideal) use case.
+        # The anonymous lambda functions might take up more memory, so keep an eye on that.
+        self.creator = type('AnonymousCreator', (object,), {'name': lambda self: state['creator_name'], 'description': lambda self: state['creator_description']})()
 
 class UpdateMessage:
     """A class that encapsulates multiple incremental units and their update type. The
@@ -732,7 +768,7 @@ class AbstractModule:
         Returns:
             UpdateMessage: An update message that is produced by this module based
             on the incremental units that were given. May be None.
-        """ 
+        """
         raise NotImplementedError()
 
     def _run(self):
@@ -740,7 +776,7 @@ class AbstractModule:
         self._is_running = True
         while self._is_running:
             # When buffer is empty the loop is too tight and chokes the entire system. (Loop executes without releasing resources to the OS)
-            time.sleep(0.00001)
+            time.sleep(0.02)
             for buffer in self._left_buffers:
                 with self.mutex:
                     try:
