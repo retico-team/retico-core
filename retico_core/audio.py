@@ -179,7 +179,7 @@ class MicrophoneModule(retico_core.AbstractProducingModule):
         self.audio_buffer.put(in_data)
         return (in_data, pyaudio.paContinue)
 
-    def __init__(self, frame_length=0.02, rate=16000, sample_width=2, **kwargs):
+    def __init__(self, frame_length=0.02, rate=16000, sample_width=2, device_index=None, **kwargs):
         """
         Initialize the Microphone Module.
 
@@ -187,6 +187,8 @@ class MicrophoneModule(retico_core.AbstractProducingModule):
             frame_length (float): The length of one frame (i.e., IU) in seconds
             rate (int): The frame rate of the recording
             sample_width (int): The width of a single sample of audio in bytes.
+            device_index (int): The device index of the microphone to use. If None,
+                uses the default input device.
         """
         super().__init__(**kwargs)
         self.frame_length = frame_length
@@ -195,6 +197,10 @@ class MicrophoneModule(retico_core.AbstractProducingModule):
         self.sample_width = sample_width
 
         self._p = pyaudio.PyAudio()
+
+        if device_index is None:
+            device_index = self._p.get_default_input_device_info()["index"]
+        self.device_index = device_index
 
         self.audio_buffer = queue.Queue()
         self.stream = None
@@ -218,6 +224,7 @@ class MicrophoneModule(retico_core.AbstractProducingModule):
             channels=CHANNELS,
             rate=self.rate,
             input=True,
+            input_device_index=self.device_index,
             output=False,
             stream_callback=self.callback,
             frames_per_buffer=self.chunk_size,
