@@ -208,6 +208,7 @@ class MicrophoneModule(retico_core.AbstractProducingModule):
             return None
         output_iu = self.create_iu()
         output_iu.set_audio(sample, self.chunk_size, self.rate, self.sample_width)
+        output_iu.meta_data['origin_timestamp'] = output_iu.created_at
         return retico_core.UpdateMessage.from_iu(output_iu, retico_core.UpdateType.ADD)
 
     def setup(self):
