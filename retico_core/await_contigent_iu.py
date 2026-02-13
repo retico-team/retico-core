@@ -45,7 +45,7 @@ class AwaitContingentIUsModule(abstract.AbstractModule):
 
     def _extractor_thread(self):
          while self._extractor_thread_active:
-            time.sleep(0.5)
+            time.sleep(0.01)
             if len(self.queue) != len(self.required_ius_list):
                 continue
             # Iterate over queue and pop all the items off, make sure they align with the expected IUs.
