@@ -1011,6 +1011,8 @@ class AbstractProducingModule(AbstractModule):
                 output_message = self.process_update(None)
                 if output_message:
                     if output_message.has_valid_ius(self.output_iu()):
+                        for iu, _ in output_message:
+                            iu.meta_data['producing_module_timestamp'] = iu.created_at
                         self.append(output_message)
                     else:
                         raise TypeError(
