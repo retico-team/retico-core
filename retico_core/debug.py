@@ -116,7 +116,7 @@ class TextPrinterModule(abstract.AbstractConsumingModule):
 
 
 class LoggerModule(abstract.AbstractConsumingModule):
-    """A debug module that logs IUs and network from any module that takes in and outputs IUs to a websocket that are coming in."""
+    """A debug module that logs IUs and the network from any module that outputs IUs to a websocket that are coming in."""
 
     @staticmethod
     def name():
@@ -190,8 +190,6 @@ class LoggerModule(abstract.AbstractConsumingModule):
         return m, c, indegree_count, network_list
 
     def process_update(self, update_message):
-        msg_len = len(update_message)
-        
         if not self.computed_network:
             modules, connections, indegree_count, network_list = self.config_network()
             network_info = {
@@ -209,54 +207,25 @@ class LoggerModule(abstract.AbstractConsumingModule):
             self.logger.info(json.dumps(network_info))
         
         for i, (iu, ut) in enumerate(update_message):
-            if iu.previous_iu != None and iu.grounded_in != None:
-                self.UM[i] = {
-                    'IU': str(iu.payload),
-                    'UpdateType': ut.value.upper(),
-                    'Module': iu.creator.name(),
-                    'IUType': str(iu.type()),
-                    'IUID': str(iu.iuid),
-                    'PreviousIUID': str(iu.previous_iu.iuid),
-                    'Age': iu.age(),
-                    'TimeCreated': iu.created_at,
-                    'GroundedIn': {
-                        'IUID': str(iu.grounded_in.iuid),
-                        'IUType': str(iu.grounded_in.type()),
-                        'Module': iu.grounded_in.creator.name(),
-                        'Age': str(iu.grounded_in.age()),
-                        'TimeCreated': iu.grounded_in.created_at,
-                    },
-                }
-                
-                self.sio.emit(self.route, self.UM[i])
-                self.logger.info(json.dumps(self.UM[i]))
-
-            # edge case where first iu is being made
-            elif iu.grounded_in != None and iu.previous_iu == None:
-                self.UM[i] = {
-                    'IU': str(iu.payload),
-                    'UpdateType': ut.value.upper(),
-                    'Module': iu.creator.name(),
-                    'IUType': str(iu.type()),
-                    'IUID': str(iu.iuid),
-                    'PreviousIU': None,
-                    'Age': iu.age(),
-                    'TimeCreated': iu.created_at,
-                    'GroundedIn': {
-                        'IUID': str(iu.grounded_in.iuid),
-                        'IUType': str(iu.grounded_in.type()),
-                        'Module': iu.grounded_in.creator.name(),
-                        'Age': str(iu.grounded_in.age()),
-                        'TimeCreated': iu.grounded_in.created_at,
-                    },
-                }
-                
-                self.sio.emit(self.route, self.UM[i])
-                self.logger.info(json.dumps(self.UM[i]))
-
-            else:
-                print("Edge case where grounded_in and previous_iu is None")
-                self.logger.warning("Edge case where grounded_in and previous_iu is None")
-                
+            self.UM[i] = {
+                'IU': str(iu.payload),
+                'UpdateType': ut.value.upper(),
+                'Module': iu.creator.name() if hasattr(iu, 'creator') else None,
+                'IUType': str(iu.type()),
+                'IUID': str(iu.iuid),
+                'PreviousIUID': str(iu.previous_iu.iuid) if iu.previous_iu else None,
+                'Age': iu.age(),
+                'TimeCreated': iu.created_at,
+                'GroundedIn': {
+                    'IUID': str(iu.grounded_in.iuid),
+                    'IUType': str(iu.grounded_in.type()),
+                    'Module': iu.grounded_in.creator.name() if hasattr(iu.grounded_in, 'creator') else None,
+                    'Age': str(iu.grounded_in.age()),
+                    'TimeCreated': iu.grounded_in.created_at,
+                } if iu.grounded_in else None,
+            }
+            
+            self.sio.emit(self.route, self.UM[i])
+            self.logger.info(json.dumps(self.UM[i]))
 
         self.UM.clear()
