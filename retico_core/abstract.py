@@ -910,7 +910,6 @@ class AbstractModule:
         """
         new_iu = self.output_iu()(
             creator=self,
-            creator_id=self.id,
             iuid=f"{hash(self)}:{self.iu_counter}",
             previous_iu=self._previous_iu,
             grounded_in=grounded_in,
