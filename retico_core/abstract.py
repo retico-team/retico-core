@@ -17,6 +17,7 @@ import time
 import enum
 import copy
 import json
+import uuid
 
 
 class UpdateType(enum.Enum):
@@ -107,6 +108,7 @@ class IncrementalUnit:
             payload: A generic payload that can be set.
         """
         self.creator = creator
+        self.creator_id = creator.id
         self.iuid = iuid
         if self.iuid is None:
             self.iuid = hash(self)
@@ -533,6 +535,7 @@ class AbstractModule:
             self.queue_class = queue_class
 
         self.iu_counter = 0
+        self.id = str(uuid.uuid4())
 
     def revoke(self, iu, remove_revoked=True):
         """Revokes an IU form the list of the current_input or current_output, depending
