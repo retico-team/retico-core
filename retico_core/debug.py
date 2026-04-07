@@ -163,23 +163,24 @@ class LoggerModule(abstract.AbstractConsumingModule):
         network_list = dict()
         
         for mod in m:
-            network_list[mod.name()] = {
-                'current_mod': mod.name(),
+            network_list[mod.id] = {
+                'current_mod': mod.id,
+                'name': mod.name(),
                 'previous_mods': list(),
                 'next_mods': list(),
             }
             
         for to_mod, from_mod in c:
-            network_list[to_mod.name()]['previous_mods'].append(from_mod.name())
-            network_list[from_mod.name()]['next_mods'].append(to_mod.name())
+            network_list[to_mod.id]['previous_mods'].append(from_mod.id)
+            network_list[from_mod.id]['next_mods'].append(to_mod.id)
         
         indegree_count = dict()
         
         for mod in m:
-            indegree_count[mod.name()] = 0
+            indegree_count[mod.id] = 0
             
         for to_mod, _ in c:
-            indegree_count[to_mod.name()] += 1
+            indegree_count[to_mod.id] += 1
         
         print("DISCOVERED MODULES AND CONNECTIONS")
         print(f"Modules: {m}")
@@ -195,11 +196,11 @@ class LoggerModule(abstract.AbstractConsumingModule):
             network_info = {
                 'NetworkList': network_list,
                 'DegreeCount': indegree_count,
-                'Modules': [mod.name() for mod in modules],
+                'Modules': [mod.id for mod in modules],
                 'Connections': [
                     {
-                        'From': conn[1].name(),
-                        'To': conn[0].name(),
+                        'From': conn[1].id,
+                        'To': conn[0].id,
                     } for conn in connections
                 ],
             }
@@ -210,7 +211,8 @@ class LoggerModule(abstract.AbstractConsumingModule):
             self.UM[i] = {
                 'IU': str(iu.payload),
                 'UpdateType': ut.value.upper(),
-                'Module': iu.creator.name() if hasattr(iu, 'creator') else None,
+                'Module': iu.creator.id if hasattr(iu, 'creator') else None,
+                'ModuleName': iu.creator.name() if hasattr(iu, 'creator') else None,
                 'IUType': str(iu.type()),
                 'IUID': str(iu.iuid),
                 'PreviousIUID': str(iu.previous_iu.iuid) if iu.previous_iu else None,
@@ -219,7 +221,8 @@ class LoggerModule(abstract.AbstractConsumingModule):
                 'GroundedIn': {
                     'IUID': str(iu.grounded_in.iuid),
                     'IUType': str(iu.grounded_in.type()),
-                    'Module': iu.grounded_in.creator.name() if hasattr(iu.grounded_in, 'creator') else None,
+                    'Module': iu.grounded_in.creator.id if hasattr(iu.grounded_in, 'creator') else None,
+                    'ModuleName': iu.grounded_in.creator.name() if hasattr(iu.grounded_in, 'creator') else None,
                     'Age': str(iu.grounded_in.age()),
                     'TimeCreated': iu.grounded_in.created_at,
                 } if iu.grounded_in else None,
