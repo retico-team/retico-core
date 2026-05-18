@@ -211,7 +211,7 @@ class LoggerModule(abstract.AbstractConsumingModule):
             self.UM[i] = {
                 'IU': str(iu.payload),
                 'UpdateType': ut.value.upper(),
-                'Module': iu.creator.id if hasattr(iu, 'creator') else None,
+                'Module': iu.creator.id if hasattr(iu, 'creator') and hasattr(iu.creator, 'id') else None,
                 'ModuleName': iu.creator.name() if hasattr(iu, 'creator') else None,
                 'IUType': str(iu.type()),
                 'IUID': str(iu.iuid),
@@ -221,7 +221,7 @@ class LoggerModule(abstract.AbstractConsumingModule):
                 'GroundedIn': {
                     'IUID': str(iu.grounded_in.iuid),
                     'IUType': str(iu.grounded_in.type()),
-                    'Module': iu.grounded_in.creator.id if hasattr(iu.grounded_in, 'creator') else None,
+                    'Module': iu.grounded_in.creator.id if hasattr(iu.grounded_in, 'creator') and hasattr(iu.grounded_in.creator, 'id') else None,
                     'ModuleName': iu.grounded_in.creator.name() if hasattr(iu.grounded_in, 'creator') else None,
                     'Age': str(iu.grounded_in.age()),
                     'TimeCreated': iu.grounded_in.created_at,
