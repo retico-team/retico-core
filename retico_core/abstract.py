@@ -503,7 +503,11 @@ class AbstractModule:
                 d[k] = v
         return d
 
-    def __init__(self, queue_class=IncrementalQueue, meta_data={}, **kwargs):
+    def __init__(self, queue_class=IncrementalQueue,
+                 meta_data={},
+                 sleep_interval=0.2,
+                 **kwargs
+                 ):
         """Initialize the module with a default IncrementalQueue.
 
         Args:
@@ -514,6 +518,8 @@ class AbstractModule:
             meta_data (dict): A dict with meta data about the module. This may
                 be coordinates of the visualization of this module or other
                 auxiliary information.
+            sleep_interval (float): The time in seconds to sleep when the input
+                queues are empty, to avoid busy spin.
         """
         self._right_buffers = []
         self._is_running = False
@@ -536,6 +542,8 @@ class AbstractModule:
 
         self.iu_counter = 0
         self.id = str(uuid.uuid4())
+
+        self._sleep_interval = sleep_interval
 
     def revoke(self, iu, remove_revoked=True):
         """Revokes an IU form the list of the current_input or current_output, depending
@@ -778,14 +786,17 @@ class AbstractModule:
         self.prepare_run()
         self._is_running = True
         while self._is_running:
-            # When buffer is empty the loop is too tight and chokes the entire system. (Loop executes without releasing resources to the OS)
-            time.sleep(0.02)
+            did_work = False
+
             for buffer in self._left_buffers:
                 with self.mutex:
                     try:
-                        update_message = buffer.get(timeout=self.QUEUE_TIMEOUT)
+                        update_message = buffer.get_nowait()
+                        did_work = True
+
                     except queue.Empty:
                         update_message = None
+
                     if update_message:
                         '''
                         If this module gets an invalid IU, print a warning the first time
@@ -812,6 +823,9 @@ class AbstractModule:
                                 raise TypeError(
                                     "This module should not produce IUs of this type."
                                 )
+            if not did_work:
+                time.sleep(self._sleep_interval)
+
         self.shutdown()
 
     def is_valid_input_iu(self, iu):
